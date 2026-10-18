@@ -47,8 +47,8 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 ./sync.sh              # rebuild + install everything at the locked commits
 ./sync.sh --dry-run    # show what would change
 ./sync.sh --update     # pull upstream, show changes per skill, rebuild, re-lock
-./sync.sh edit <skill> # prepare .work/<skill>/{a,b} to change a patch; edit b/
-./sync.sh save <skill> # write patches/<skill>.patch from .work/<skill>, then ./sync.sh
+./sync.sh edit <skill> # prepare .patch-work/<skill>/{a,b} to change a patch; edit b/
+./sync.sh save <skill> # write patches/<skill>.patch from .patch-work/<skill>, then ./sync.sh
 ```
 
 **Safety rules:**

@@ -7,8 +7,8 @@ Usage (via ../sync.sh):
   sync.sh                 rebuild everything at the locked vendor commits
   sync.sh --dry-run       show what would change, write nothing
   sync.sh --update        pull vendors, show upstream changes, rebuild, re-lock
-  sync.sh edit <skill>    prepare .work/<skill>/{a,b} to change a patch (edit b/)
-  sync.sh save <skill>    write patches/<skill>.patch from .work/<skill>
+  sync.sh edit <skill>    prepare .patch-work/<skill>/{a,b} to change a patch (edit b/)
+  sync.sh save <skill>    write patches/<skill>.patch from .patch-work/<skill>
 """
 import filecmp
 import json
@@ -275,7 +275,7 @@ def update(man, lock):
                 print(f"  {src}: {len(fails)} patch(es) no longer apply — keeping lock at {old[:8]}:")
                 for n, e in fails:
                     print(f"    {n}: {e}")
-                print(f"  Re-port with: sync.sh edit <skill>  (then edit .work/<skill>/b, sync.sh save <skill>)")
+                print(f"  Re-port with: sync.sh edit <skill>  (then edit .patch-work/<skill>/b, sync.sh save <skill>)")
                 print(f"  Upstream diff: git -C {man['vendors'][src]['dir']} diff {old[:8]} {new[:8]} -- <path>")
                 sh(["git", "checkout", "-q", old], cwd=d)
             else:
@@ -305,7 +305,7 @@ def edit(man, lock, name):
     if skill["source"] == "owned":
         sys.exit(f"{name} is owned: edit {skill['path']} directly")
     ensure_vendor(man, skill["source"], lock.get(skill["source"]))
-    work = os.path.join(ROOT, ".work", name)
+    work = os.path.join(ROOT, ".patch-work", name)
     if os.path.exists(work):
         shutil.rmtree(work)
     src = os.path.join(vendor_dir(man, skill["source"]), skill["path"])
@@ -319,7 +319,7 @@ def edit(man, lock, name):
 
 def save(man, name):
     skill = find_skill(man, name)
-    work = os.path.join(ROOT, ".work", name)
+    work = os.path.join(ROOT, ".patch-work", name)
     r = subprocess.run(["diff", "-ruN", "a", "b"], cwd=work, capture_output=True, text=True)
     patch_rel = skill.get("patch") or f"patches/{name}.patch"
     with open(os.path.join(ROOT, patch_rel), "w") as f:
