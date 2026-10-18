@@ -1,6 +1,6 @@
 # devflow skills: current overview
 
-What is installed, what each skill does, and the names it uses. This file describes the current state, including the smoke-test fixes of 2026-10-17. `../SKILLS-DESIGN.md` is the original design and its rationale; where the two disagree, this file and the skills themselves win.
+What is installed, what each skill does, and the names it uses. [DESIGN.md](DESIGN.md) records why; this file records what. Where they disagree, this file and the skills win.
 
 ## Quick start
 
@@ -119,6 +119,4 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 
 ## Known gaps
 
-- **D21:** a resume started outside the repo searches the disk before asking which repo #N is in. Listed in `README.md` under "Known issues"; not fixed yet.
 - The two ticket-worktree naming schemes above (fast vs rigor) differ. This is cosmetic.
-- The 2026-10-17 fixes haven't had a re-smoke yet (see `../SMOKE-TEST-NOTES.md`, "Applied fixes").

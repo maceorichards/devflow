@@ -1,6 +1,6 @@
 # devflow
 
-My Claude Code skills and workflows. **[SKILLS.md](SKILLS.md) is the current overview** of every skill, the workflow mechanics and the naming conventions. Handpicked skills from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills), plus my patches and my own skills, built into `~/.claude/skills/` so every project sees them. The full design is in `../SKILLS-DESIGN.md`.
+My Claude Code skills and workflows. **[SKILLS.md](SKILLS.md) is the current overview** of every skill, the workflow mechanics and the naming conventions. Handpicked skills from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills), plus my patches and my own skills, built into `~/.claude/skills/` so every project sees them. [DESIGN.md](DESIGN.md) records why it's built this way.
 
 ## Workflows
 
@@ -33,6 +33,8 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 
 | Path | What |
 |---|---|
+| `SKILLS.md` | What is installed and how the workflows run |
+| `DESIGN.md` | Why: the design decisions and what was rejected |
 | `manifest.json` | Every managed skill: source, upstream path, tier, description override, patch |
 | `vendor.lock` | The upstream commits the patches were last applied against (written by `sync.sh`) |
 | `patches/` | Diffs against upstream skills |
@@ -58,9 +60,3 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 **Adding a skill:** add an entry to `manifest.json`, then run `./sync.sh`. **Removing one:** delete its entry; `./sync.sh` removes the installed copy.
 
 **Never edit `~/.claude/skills/<name>/` directly.** It's generated, and the next sync overwrites it.
-
-## Known issues (not yet fixed)
-
-From the 2026-10-17 smoke test (`../SMOKE-TEST-NOTES.md`):
-
-- **D21: resuming outside the repo searches the disk.** `/dev-multi #N` (or `/dev-single #N`) in a session with no project folder fails preflight correctly, then searches the home folder for `.claude/docs/runs/iss-N.json` before asking which repo #N is in. Proposed fix (not applied): in `owned/align` §0.1, "if not inside a git repository, ask for the repo path (or tell the user to open the session in it) and stop; don't search the filesystem."
