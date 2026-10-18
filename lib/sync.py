@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+"""devflow sync: build managed skills from vendor sources + patches + owned skills,
+install them into ~/.claude/skills, and keep the global CLAUDE.md section and git
+ignore lines in place.
+
+Usage (via ../sync.sh):
+  sync.sh                 rebuild everything at the locked vendor commits
+  sync.sh --dry-run       show what would change, write nothing
+  sync.sh --update        pull vendors, show upstream changes, rebuild, re-lock
+  sync.sh edit <skill>    prepare .work/<skill>/{a,b} to change a patch (edit b/)
+  sync.sh save <skill>    write patches/<skill>.patch from .work/<skill>
+"""
+import filecmp
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MANIFEST = os.path.join(ROOT, "manifest.json")
+LOCK = os.path.join(ROOT, "vendor.lock")
+CLAUDE_MD = os.path.expanduser("~/.claude/CLAUDE.md")
+GIT_IGNORE = os.path.expanduser("~/.config/git/ignore")
+MD_START = "<!-- devflow:start"
+MD_END = "<!-- devflow:end -->"
+
+
+def sh(args, cwd=None, check=True):
+    r = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    if check and r.returncode != 0:
+        raise RuntimeError(f"{' '.join(args)} failed:\n{r.stdout}{r.stderr}")
+    return r
+
+
+def load():
+    with open(MANIFEST) as f:
+        man = json.load(f)
+    lock = {}
+    if os.path.exists(LOCK):
+        with open(LOCK) as f:
+            lock = json.load(f)
+    return man, lock
+
+
+def vendor_dir(man, src):
+    return os.path.join(ROOT, man["vendors"][src]["dir"])
+
+
+def ensure_vendor(man, src, sha=None):
+    d = vendor_dir(man, src)
+    if not os.path.isdir(os.path.join(d, ".git")):
+        print(f"cloning {src} …")
+        sh(["git", "clone", "-q", man["vendors"][src]["url"], d])
+    if sha:
+        cur = sh(["git", "rev-parse", "HEAD"], cwd=d).stdout.strip()
+        if cur != sha:
+            sh(["git", "fetch", "-q", "origin"], cwd=d, check=False)
+            sh(["git", "checkout", "-q", sha], cwd=d)
+    return sh(["git", "rev-parse", "HEAD"], cwd=d).stdout.strip()
+
+
+# --------------------------------------------------------------------- frontmatter
+def set_frontmatter(path, skill):
+    with open(path) as f:
+        txt = f.read()
+    m = re.match(r"---\n(.*?)\n---\n", txt, re.S)
+    if not m:
+        raise RuntimeError(f"{path}: no frontmatter")
+    lines = [l for l in m.group(1).split("\n") if not l.startswith("disable-model-invocation:")]
+    out = []
+    for l in lines:
+        if l.startswith("name:"):
+            l = f"name: {skill['name']}"
+        elif l.startswith("description:") and skill.get("description"):
+            l = "description: " + json.dumps(skill["description"])
+        out.append(l)
+    if skill["tier"] == "slash":
+        out.append("disable-model-invocation: true")
+    new = "---\n" + "\n".join(out) + "\n---\n" + txt[m.end():]
+    with open(path, "w") as f:
+        f.write(new)
+
+
+# --------------------------------------------------------------------- build
+def build_skill(man, skill, stage_root):
+    """Return (staged_dir, error_or_None)."""
+    stage = os.path.join(stage_root, skill["name"])
+    if skill["source"] == "owned":
+        src = os.path.join(ROOT, skill["path"])
+    else:
+        src = os.path.join(vendor_dir(man, skill["source"]), skill["path"])
+    if not os.path.isdir(src):
+        return stage, f"source missing: {src}"
+    shutil.copytree(src, stage)
+    if skill.get("patch"):
+        patch = os.path.join(ROOT, skill["patch"])
+        r = sh(["git", "apply", "--whitespace=nowarn", "-p1", patch], cwd=stage, check=False)
+        if r.returncode != 0:
+            return stage, f"patch failed: {skill['patch']}\n{r.stderr.strip()}"
+    # Text rewrites on every .md file, after the patch: the vendor's prefix is
+    # stripped, then the manifest's "rewrite" map (e.g. renamed skills) applies.
+    subs = []
+    prefix = man.get("strip_prefix", {}).get(skill["source"])
+    if prefix:
+        subs.append((prefix, ""))
+    subs += list(man.get("rewrite", {}).items())
+    if subs:
+        for dp, _, files in os.walk(stage):
+            for fn in files:
+                if fn.endswith(".md"):
+                    p = os.path.join(dp, fn)
+                    with open(p) as f:
+                        t = f.read()
+                    new = t
+                    for old, rep in subs:
+                        new = new.replace(old, rep)
+                    if new != t:
+                        with open(p, "w") as f:
+                            f.write(new)
+    set_frontmatter(os.path.join(stage, "SKILL.md"), skill)
+    return stage, None
+
+
+def dirs_equal(a, b, ignore=()):
+    cmp = filecmp.dircmp(a, b, ignore=list(ignore))
+    if cmp.left_only or cmp.right_only or cmp.diff_files or cmp.funny_files:
+        return False
+    # shallow=False content check
+    _, mismatch, errors = filecmp.cmpfiles(a, b, cmp.common_files, shallow=False)
+    if mismatch or errors:
+        return False
+    return all(dirs_equal(os.path.join(a, d), os.path.join(b, d), ignore) for d in cmp.common_dirs)
+
+
+def install(man, skill, stage, lock, dry):
+    dest_root = os.path.expanduser(man["install_dir"])
+    dest = os.path.join(dest_root, skill["name"])
+    marker = man["marker"]
+    if os.path.exists(dest) and not os.path.exists(os.path.join(dest, marker)):
+        return "SKIP (exists, not managed by devflow)"
+    if os.path.exists(dest) and dirs_equal(stage, dest, ignore=[marker]):
+        return "unchanged"
+    action = "update" if os.path.exists(dest) else "install"
+    if dry:
+        return f"would {action}"
+    os.makedirs(dest_root, exist_ok=True)
+    with open(os.path.join(stage, marker), "w") as f:
+        src = skill["source"]
+        f.write(json.dumps({"source": src, "path": skill["path"],
+                            "commit": lock.get(src, "owned"), "tier": skill["tier"]}) + "\n")
+    tmp = dest + ".devflow-new"
+    if os.path.exists(tmp):
+        shutil.rmtree(tmp)
+    shutil.copytree(stage, tmp)
+    if os.path.exists(dest):
+        old = dest + ".devflow-old"
+        os.rename(dest, old)
+        os.rename(tmp, dest)
+        shutil.rmtree(old)
+    else:
+        os.rename(tmp, dest)
+    return action + "d" if action.endswith("e") else action + "ed"
+
+
+def prune(man, dry):
+    dest_root = os.path.expanduser(man["install_dir"])
+    names = {s["name"] for s in man["skills"]}
+    out = []
+    if not os.path.isdir(dest_root):
+        return out
+    for d in sorted(os.listdir(dest_root)):
+        p = os.path.join(dest_root, d)
+        if d not in names and os.path.exists(os.path.join(p, man["marker"])):
+            if not dry:
+                shutil.rmtree(p)
+            out.append(f"{'would remove' if dry else 'removed'} {d} (no longer in manifest)")
+    return out
+
+
+# --------------------------------------------------------------------- global config
+def sync_claude_md(dry):
+    with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
+        section = f.read().strip() + "\n"
+    cur = open(CLAUDE_MD).read() if os.path.exists(CLAUDE_MD) else ""
+    if MD_START in cur and MD_END in cur:
+        a = cur.index(MD_START)
+        b = cur.index(MD_END) + len(MD_END)
+        new = cur[:a] + section.rstrip("\n") + cur[b:]
+    else:
+        new = (cur.rstrip("\n") + "\n\n" if cur.strip() else "") + section
+    if new == cur:
+        return "CLAUDE.md section unchanged"
+    if not dry:
+        os.makedirs(os.path.dirname(CLAUDE_MD), exist_ok=True)
+        with open(CLAUDE_MD, "w") as f:
+            f.write(new)
+    return ("would update" if dry else "updated") + " ~/.claude/CLAUDE.md devflow section"
+
+
+def sync_git_ignore(dry):
+    with open(os.path.join(ROOT, "global", "git-ignore-lines")) as f:
+        want = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+    cur = open(GIT_IGNORE).read() if os.path.exists(GIT_IGNORE) else ""
+    have = {l.strip() for l in cur.splitlines()}
+    missing = [l for l in want if l not in have]
+    if not missing:
+        return "git ignore lines present"
+    if not dry:
+        os.makedirs(os.path.dirname(GIT_IGNORE), exist_ok=True)
+        with open(GIT_IGNORE, "a") as f:
+            if cur and not cur.endswith("\n"):
+                f.write("\n")
+            if "# devflow" not in cur:
+                f.write("# devflow (managed by ~/Documents/CUSTOM-SKILLS/devflow)\n")
+            f.write("\n".join(missing) + "\n")
+    return f"{'would add' if dry else 'added'} to ~/.config/git/ignore: {', '.join(missing)}"
+
+
+# --------------------------------------------------------------------- commands
+def apply_all(man, lock, dry=False, only_sources=None):
+    for src in man["vendors"]:
+        lock[src] = ensure_vendor(man, src, lock.get(src))
+    stage_root = tempfile.mkdtemp(prefix="devflow-stage-")
+    failures = []
+    try:
+        for skill in man["skills"]:
+            if only_sources and skill["source"] not in only_sources:
+                continue
+            stage, err = build_skill(man, skill, stage_root)
+            if err:
+                failures.append((skill["name"], err))
+                print(f"  FAIL      {skill['name']}: {err}")
+                continue
+            status = install(man, skill, stage, lock, dry)
+            print(f"  {status:<10} {skill['name']}  [{skill['tier']}]")
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
+    for line in prune(man, dry):
+        print("  " + line)
+    print("  " + sync_claude_md(dry))
+    print("  " + sync_git_ignore(dry))
+    return failures
+
+
+def update(man, lock):
+    stage_root = tempfile.mkdtemp(prefix="devflow-update-")
+    try:
+        for src in man["vendors"]:
+            old = ensure_vendor(man, src, lock.get(src))
+            d = vendor_dir(man, src)
+            sh(["git", "fetch", "-q", "origin"], cwd=d)
+            new = sh(["git", "rev-parse", "origin/HEAD"], cwd=d, check=False).stdout.strip()
+            if not new:
+                sh(["git", "remote", "set-head", "origin", "-a"], cwd=d)
+                new = sh(["git", "rev-parse", "origin/HEAD"], cwd=d).stdout.strip()
+            if new == old:
+                print(f"{src}: up to date ({old[:8]})")
+                continue
+            print(f"{src}: {old[:8]} → {new[:8]}")
+            sh(["git", "checkout", "-q", new], cwd=d)
+            fails = []
+            for skill in man["skills"]:
+                if skill["source"] != src:
+                    continue
+                log = sh(["git", "log", "--oneline", f"{old}..{new}", "--", skill["path"]], cwd=d).stdout.strip()
+                if log:
+                    print(f"  upstream changes in {skill['name']}:\n    " + log.replace("\n", "\n    "))
+                _, err = build_skill(man, skill, os.path.join(stage_root, src))
+                if err:
+                    fails.append((skill["name"], err))
+            if fails:
+                print(f"  {src}: {len(fails)} patch(es) no longer apply — keeping lock at {old[:8]}:")
+                for n, e in fails:
+                    print(f"    {n}: {e}")
+                print(f"  Re-port with: sync.sh edit <skill>  (then edit .work/<skill>/b, sync.sh save <skill>)")
+                print(f"  Upstream diff: git -C {man['vendors'][src]['dir']} diff {old[:8]} {new[:8]} -- <path>")
+                sh(["git", "checkout", "-q", old], cwd=d)
+            else:
+                lock[src] = new
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
+    failures = apply_all(man, lock)
+    save_lock(lock)
+    return failures
+
+
+def save_lock(lock):
+    with open(LOCK, "w") as f:
+        json.dump(lock, f, indent=2)
+        f.write("\n")
+
+
+def find_skill(man, name):
+    for s in man["skills"]:
+        if s["name"] == name:
+            return s
+    sys.exit(f"unknown skill: {name}")
+
+
+def edit(man, lock, name):
+    skill = find_skill(man, name)
+    if skill["source"] == "owned":
+        sys.exit(f"{name} is owned: edit {skill['path']} directly")
+    ensure_vendor(man, skill["source"], lock.get(skill["source"]))
+    work = os.path.join(ROOT, ".work", name)
+    if os.path.exists(work):
+        shutil.rmtree(work)
+    src = os.path.join(vendor_dir(man, skill["source"]), skill["path"])
+    shutil.copytree(src, os.path.join(work, "a"))
+    shutil.copytree(src, os.path.join(work, "b"))
+    if skill.get("patch") and os.path.exists(os.path.join(ROOT, skill["patch"])):
+        sh(["git", "apply", "--whitespace=nowarn", "-p1", os.path.join(ROOT, skill["patch"])],
+           cwd=os.path.join(work, "b"), check=False)
+    print(f"Edit {work}/b (upstream + current patch), then run: sync.sh save {name}")
+
+
+def save(man, name):
+    skill = find_skill(man, name)
+    work = os.path.join(ROOT, ".work", name)
+    r = subprocess.run(["diff", "-ruN", "a", "b"], cwd=work, capture_output=True, text=True)
+    patch_rel = skill.get("patch") or f"patches/{name}.patch"
+    with open(os.path.join(ROOT, patch_rel), "w") as f:
+        f.write(r.stdout)
+    if not skill.get("patch"):
+        print(f"Add \"patch\": \"{patch_rel}\" to {name} in manifest.json")
+    print(f"wrote {patch_rel} ({r.stdout.count(chr(10))} lines). Run sync.sh to install.")
+
+
+def main(argv):
+    man, lock = load()
+    if argv[:1] == ["edit"] and len(argv) == 2:
+        return edit(man, lock, argv[1])
+    if argv[:1] == ["save"] and len(argv) == 2:
+        return save(man, argv[1])
+    if argv == ["--update"]:
+        fails = update(man, lock)
+    elif argv in ([], ["--dry-run"]):
+        dry = argv == ["--dry-run"]
+        print("devflow sync" + (" (dry run)" if dry else ""))
+        fails = apply_all(man, lock, dry=dry)
+        if not dry:
+            save_lock(lock)
+    else:
+        sys.exit(__doc__)
+    if fails:
+        print(f"\n{len(fails)} skill(s) failed; their previously installed versions were left in place.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

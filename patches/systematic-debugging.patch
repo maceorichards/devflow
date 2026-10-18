@@ -1,0 +1,12 @@
+diff -ruN a/SKILL.md b/SKILL.md
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-17 04:24:17
+@@ -174,7 +174,7 @@
+    - Automated test if possible
+    - One-off test script if no framework
+    - MUST have before fixing
+-   - Use the `superpowers:test-driven-development` skill for writing proper failing tests
++   - Use the `tdd` skill for writing proper failing tests
+ 
+ 2. **Implement Single Fix**
+    - Address the root cause identified

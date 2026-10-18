@@ -1,0 +1,30 @@
+diff -ruN a/SKILL.md b/SKILL.md
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-17 04:24:17
+@@ -52,6 +52,8 @@
+ 
+ ## Step 4: Present Options
+ 
++**Preselected option (devflow).** When a calling workflow preselects an option (`/dev-single` and `/dev-multi` preselect 2 against the feature's base; `run-lanes` preselects 1 into the integration branch), state the plan in one line and ask a single confirmation instead of the menu, e.g. "Push `feat/iss-42-x` and open a PR against `main`? (yes, or pick: merge locally / keep)". The user can still pick another option.
++
+ **Normal repo and named-branch worktree — present exactly these 3 options:**
+ 
+ ```
+@@ -85,6 +87,8 @@
+ 
+ ### Option 1: Merge Locally
+ 
++**If `<base-branch>` is checked out in another worktree** (`git worktree list` shows it, e.g. a devflow integration branch), don't check it out in the main root. Merge inside that worktree instead: `git -C <base-worktree> merge <feature-branch>`. Skip `git pull` for a local-only branch, and run the tests there.
++
+ ```bash
+ # Get main repo root for CWD safety
+ MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
+@@ -119,7 +123,7 @@
+ ```
+ 
+ Then create the pull/merge request against <base-branch> with the forge's
+-tooling — its CLI if one is available, or the creation URL most forges
++tooling (body shaped by the `pr` skill, including any `Closes #N` lines the caller gives you) — its CLI if one is available, or the creation URL most forges
+ print when you push — following the repo's PR template and conventions if
+ present, and report the URL to your human partner.
+ 

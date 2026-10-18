@@ -1,0 +1,143 @@
+diff -ruN a/SKILL.md b/SKILL.md
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-17 17:51:27
+@@ -32,30 +32,8 @@
+ 
+ ## When to Use
+ 
+-```dot
+-digraph when_to_use {
+-    "Have implementation plan?" [shape=diamond];
+-    "Tasks mostly independent?" [shape=diamond];
+-    "Partner chose inline, or no subagent tool?" [shape=diamond];
+-    "subagent-driven-development" [shape=box];
+-    "executing-plans" [shape=box];
+-    "Manual execution or brainstorm first" [shape=box];
++You have an implementation plan (from `writing-plans`) whose tasks you will execute in this session. In devflow, `/dev-single --rigor` and `run-lanes` call this skill for rigor work. There is no inline alternative: every task gets a tester, a fresh implementer and a task review.
+ 
+-    "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
+-    "Have implementation plan?" -> "Manual execution or brainstorm first" [label="no"];
+-    "Tasks mostly independent?" -> "Partner chose inline, or no subagent tool?" [label="yes"];
+-    "Tasks mostly independent?" -> "Manual execution or brainstorm first" [label="no - tightly coupled"];
+-    "Partner chose inline, or no subagent tool?" -> "executing-plans" [label="yes"];
+-    "Partner chose inline, or no subagent tool?" -> "subagent-driven-development" [label="no"];
+-}
+-```
+-
+-**vs. Executing Plans (inline):**
+-- Fresh subagent per task (no context pollution) instead of one context doing every task
+-- Review after each task (spec compliance + code quality) instead of only at the end
+-- Costs a fresh context per task and per review; inline costs one context plus one final reviewer
+-- Both run in this session, share the same plan workspace and ledger, and never pause between tasks
+-
+ ## The Process
+ 
+ ```dot
+@@ -124,7 +102,7 @@
+ ## Setup
+ 
+ Ensure the work happens in an isolated workspace: use
+-superpowers:using-git-worktrees to create one or verify the existing one.
++superpowers:using-git-worktrees to create one or verify the existing one. When a devflow caller (`/dev-single`, `run-lanes`) gives you a working directory, that worktree is already prepared: work from it (run every git and script command in a subshell, `(cd <dir> && ...)`, so this session itself stays in the main checkout) and don't create another.
+ Never start implementation on a main/master branch without your human
+ partner's explicit consent.
+ 
+@@ -243,10 +221,22 @@
+ all of a long wait's efficiency while guaranteeing a stuck or lost
+ child is noticed within minutes, not at the end of the session.
+ 
++### 0. Dispatch the tester (devflow)
++
++Record BASE (`git rev-parse HEAD`) **before** this step, so the review package includes the acceptance tests.
++
++Run `bash scripts/task-brief PLAN_FILE N`, then dispatch a **tester subagent** using `~/.claude/skills/tdd/tester-brief.md`. Its brief is the task-brief path plus the spec path; exact test names, assertions, values and Interfaces come from the task text. The tester:
++- writes the interface stubs and acceptance tests,
++- confirms they fail for the right reason,
++- commits `test(<scope> task N): acceptance tests`,
++- reports the commit SHA.
++
++The tester never sees implementation code for this task. Record the commit as TEST_COMMIT in the ledger. A tester status other than DONE is handled like an implementer report: provide context, or rule on a plan defect.
++
+ ### 1. Dispatch the implementer
+ 
+-Record BASE (`git rev-parse HEAD`) before dispatching — the review package
+-and fix-round diffs need it.
++BASE was recorded before the tester ran (step 0) — the review package
++and fix-round diffs need it. Give the implementer the TEST_COMMIT: the acceptance tests it must make pass, without modifying them, using the `tdd` skill in implementer mode.
+ 
+ - **Task brief:** before dispatching an implementer, run this skill's
+   `bash scripts/task-brief PLAN_FILE N` — it extracts the task's full text to a
+@@ -325,6 +315,7 @@
+ - **Reviewer inputs:** the task reviewer gets three paths — the same brief
+   file, the report file, and the review package — plus the global
+   constraints that bind the task.
++- **Acceptance tests (devflow):** tell the reviewer the TEST_COMMIT, and that any change to those test files after it (weakening, skipping, deleting, loosening tolerances) is a Critical finding unless the ledger holds a ruling allowing it.
+ - The global-constraints block you hand the reviewer is its attention
+   lens. Copy the binding requirements verbatim from the plan's Global
+   Constraints section or the spec: exact values, exact formats, and the
+@@ -444,6 +435,8 @@
+ 
+ ## Final Review
+ 
++**devflow callers skip this section.** When `/dev-single` or `run-lanes` invoked you, don't dispatch the final whole-branch review: the caller's final review (`spec-review` + `code-review` over the whole feature, with one fix pass) covers the same ground, and running both reviews the same code twice. Go straight to Finish, and add every deferred-minor and parked line from the ledger under "Deferred minors" next to "Rulings I made", so the caller's review triages them.
++
+ The final whole-branch review gets a package too: run
+ `bash scripts/review-package PLAN_FILE MERGE_BASE HEAD` (MERGE_BASE = the commit the
+ branch started from, e.g. `git merge-base main HEAD`) and include the
+@@ -479,12 +472,13 @@
+ whatever you got wrong. A ruling that dies with the workspace was a decision
+ made in secret.
+ 
+-When the final whole-branch review is clean and its fixes are merged,
++When the final whole-branch review is clean and its fixes are merged
++(or, for a devflow caller, once the last task review is clean),
+ delete this plan's workspace (`rm -rf <workspace>`) — the git history is
+ the record now. Sibling directories belong to other plans; leave them
+ alone.
+ 
+-Use superpowers:finishing-a-development-branch.
++Use superpowers:finishing-a-development-branch — **unless a devflow caller (`/dev-single`, `run-lanes`) invoked you**. Then return to the caller with the "Rulings I made" and "Deferred minors" lists; it runs its own review and finishing step.
+ 
+ ## Common Rationalizations
+ 
+diff -ruN a/implementer-prompt.md b/implementer-prompt.md
+--- a/implementer-prompt.md	2026-10-17 04:16:14
++++ b/implementer-prompt.md	2026-10-17 17:51:27
+@@ -33,11 +33,14 @@
+ 
+     Once you're clear on requirements:
+     1. Implement exactly what the task specifies
+-    2. Write tests (following TDD if task says to)
++    2. Make the acceptance tests from commit [TEST_COMMIT] pass using the `tdd`
++       skill in implementer mode (call the Skill tool with "tdd"). Never modify,
++       skip or loosen those tests; if one looks wrong, report NEEDS_CONTEXT with
++       evidence. Add inner-loop tests at agreed seams as needed.
+     3. Verify implementation works
+     4. Commit your work
+     5. Self-review (see below)
+-    6. Report back
++    6. Write your report file ([REPORT_FILE]), then report back
+ 
+     Work from: [directory]
+ 
+@@ -127,7 +130,10 @@
+ 
+     ## Report Format
+ 
+-    Write your full report to [REPORT_FILE]:
++    **Write the report file first: [REPORT_FILE].** Your reply is incomplete
++    until that file exists. The reviewer reads it from disk, not your reply.
++
++    The report file contains:
+     - What you implemented (or what you attempted, if blocked)
+     - What you tested and test results
+     - **TDD Evidence** (if TDD was required for this task):
+@@ -143,7 +149,7 @@
+     - Commits created (short SHA + subject)
+     - One-line test summary (e.g. "14/14 passing, output pristine")
+     - Your concerns, if any
+-    - The report file path
++    - The report file path (it must already exist)
+ 
+     If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
+     itself — the controller acts on it directly.

@@ -1,0 +1,81 @@
+diff -ruN a/SKILL.md b/SKILL.md
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-17 17:50:50
+@@ -38,7 +38,7 @@
+ 
+ **If `GIT_DIR == GIT_COMMON` (or in a submodule):** You are in a normal repo checkout.
+ 
+-Has the user already indicated their worktree preference in your instructions? If not, ask for consent before creating a worktree:
++Has the user already indicated their worktree preference in your instructions? (A devflow workflow invocation, `/dev-single` or `/dev-multi`, counts as consent.) If not, ask for consent before creating a worktree:
+ 
+ > "Would you like me to set up an isolated worktree? It protects your current branch from changes."
+ 
+@@ -48,9 +48,11 @@
+ 
+ **You have two mechanisms. Try them in this order.**
+ 
++**devflow callers (`align`, `run-lanes`, `implement-spec`): skip 1a and always use 1b**, at the path and base the caller gives (`$MAIN/.worktrees/...`). Don't move this session into the worktree: no `cd` that persists, no native worktree tool. A native worktree session is isolated and can't write the main checkout's `.claude/docs/`, and no setting lifts that check. Run every later command against the worktree by absolute path (`git -C "$path"`, `uv run --directory "$path"`, or a subshell `(cd "$path" && …)`).
++
+ ### 1a. Native Worktree Tools (preferred)
+ 
+-The user has asked for an isolated workspace (Step 0 consent). Do you already have a way to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to Step 2.
++The user has asked for an isolated workspace (Step 0 consent). Do you already have a way to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to Step 2. If the caller asked for a specific branch name and the native tool picked its own, rename it right after creating: `git branch -m <requested-name>`. Native tools usually branch from `origin/<default-branch>`; if the caller needs a different base (for example a devflow integration branch), use Step 1b with that base instead.
+ 
+ Native tools handle directory placement, branch creation, and cleanup automatically. Using `git worktree add` when you have a native tool creates phantom state your harness can't see or manage.
+ 
+@@ -80,10 +82,11 @@
+ **MUST verify directory is ignored before creating worktree:**
+ 
+ ```bash
+-git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
++# check a path inside the directory: a dir-only rule like `.worktrees/` doesn't match the bare name
++git check-ignore -q .worktrees/x 2>/dev/null || git check-ignore -q worktrees/x 2>/dev/null
+ ```
+ 
+-**If NOT ignored:** Add to .gitignore, commit the change, then proceed.
++**If NOT ignored:** devflow normally ignores `.worktrees/` globally (`~/.config/git/ignore`). If it still isn't ignored, add `.worktrees/` to the repo's `.git/info/exclude` (local, nothing to commit), tell the user, re-run the check, then proceed. Never `git add` anything under `.worktrees/`.
+ 
+ **Why critical:** Prevents accidentally committing worktree contents to repository.
+ 
+@@ -93,15 +96,15 @@
+ # Determine path based on chosen location
+ path="$LOCATION/$BRANCH_NAME"
+ 
+-git worktree add "$path" -b "$BRANCH_NAME"
+-cd "$path"
++git worktree add "$path" -b "$BRANCH_NAME" $BASE_REF   # BASE_REF: the base the caller asked for (empty = HEAD)
++cd "$path"   # not for devflow callers: they stay in the main checkout and use absolute paths
+ ```
+ 
+ **Sandbox fallback:** If `git worktree add` fails with a permission error (sandbox denial), tell the user the sandbox blocked worktree creation and you're working in the current directory instead. Then run setup and baseline tests in place.
+ 
+ ## Step 2: Project Setup
+ 
+-Auto-detect and run appropriate setup:
++If the repo's README or CLAUDE.md names its own setup command, use that. Otherwise auto-detect and run the appropriate setup (inside the worktree: for devflow callers, in a subshell `(cd "$path" && …)`):
+ 
+ ```bash
+ # Node.js
+@@ -111,8 +114,11 @@
+ if [ -f Cargo.toml ]; then cargo build; fi
+ 
+ # Python
+-if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+-if [ -f pyproject.toml ]; then poetry install; fi
++if [ -f uv.lock ]; then uv sync
++elif [ -f poetry.lock ]; then poetry install
++elif [ -f pyproject.toml ] && command -v uv >/dev/null; then uv sync
++elif [ -f requirements.txt ]; then pip install -r requirements.txt
++fi
+ 
+ # Go
+ if [ -f go.mod ]; then go mod download; fi
+@@ -130,6 +136,8 @@
+ **If tests fail:** Report failures, ask whether to proceed or investigate.
+ 
+ **If tests pass:** Report ready.
++
++**Record the baseline** where the caller asks (devflow: the run-state file): the test command, pass/fail counts, and the names of failing tests, so `verification-before-completion` can later separate new failures from pre-existing ones.
+ 
+ ### Report
+ 

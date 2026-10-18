@@ -1,0 +1,28 @@
+diff -ruN a/SKILL.md b/SKILL.md
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-17 04:24:17
+@@ -118,3 +118,24 @@
+ - Paraphrases and synonyms
+ - Implications of success
+ - ANY communication suggesting completion/correctness
++
++## Test Suite Reporting (devflow)
++
++Before claiming a slice, ticket or feature is done:
++
++1. **Run the full suite**, not only the tests you touched.
++2. **Name every failure**: the test identifier and a one-line reason. Never "a few failures" or "mostly passing".
++3. **Compare with the baseline** recorded when the worktree was created (devflow: `baseline` in `<main checkout>/.claude/docs/runs/iss-<N>.json`). Classify each failure:
++   - **New:** fails now, passed at baseline. Blocks completion.
++   - **Pre-existing:** failed at baseline too. Report it; it doesn't block, unless the task touched it.
++   - **Flaky:** re-run each failure once on its own; a test that passes on re-run is flagged flaky, never silently ignored.
++4. Also report **fixed** tests: failed at baseline, pass now.
++
++Report format:
++
++```
++Full suite: <command> → <P> passed, <F> failed (<N> new, <E> pre-existing, <K> flaky), <X> fixed vs baseline
++New failures:   <test id> — <reason>
++Pre-existing:   <test id>
++Flaky:          <test id>
++```

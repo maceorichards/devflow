@@ -1,0 +1,24 @@
+diff -ruN a/SKILL.md b/SKILL.md
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-17 04:24:17
+@@ -28,8 +28,9 @@
+ 
+ 1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
+ 2. A path the user passed as an argument.
+-3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
+-4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
++3. A devflow spec file: `<main checkout>/.claude/docs/specs/iss-<N>-*.md`, for the issue number in the branch name (`feat/iss-<N>-...`) or in the commit messages. Prefer it over the issue body. `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`.
++4. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
++5. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
+ 
+ ### 3. Identify the standards sources
+ 
+@@ -69,7 +70,7 @@
+ 
+ - The diff command and commit list.
+ - The path or fetched contents of the spec.
+-- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
++- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong; (d) any change to acceptance-test files after their `test(...): acceptance tests` commit, listing the commit and file (weakened, skipped or deleted acceptance tests are always a finding). Quote the spec line for each finding. Under 400 words."
+ 
+ If the spec is missing, skip the Spec sub-agent and note this in the final report.
+ 

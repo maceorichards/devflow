@@ -1,0 +1,5 @@
+# Lines devflow ensures in ~/.config/git/ignore
+.claude/docs/
+.worktrees/
+.claude/worktrees/
+CLAUDE.local.md
