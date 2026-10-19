@@ -65,3 +65,9 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 - **Decision:** `to-tickets` lists each ticket's footprint as modules. If tickets can only run in parallel after a module is split, the proposal says so and asks: split or serialize.
 - **Why:** in the smoke test, a one-file module was quietly turned into a package just so tickets could run in parallel, and review then flagged that as speculative generality. Asking keeps that architecture choice yours.
 - **Rejected:** per-function footprints for fast tickets that only add new functions.
+
+## 11. `--auto` uses a stand-in agent and ends at the PR
+
+- **Decision:** `--auto` is the user's permission for one run to make the calls it would otherwise stop for. A fresh stand-in subagent answers the grilling rounds and reviews the spec; tickets, lanes and plans are approved; the PR opens without a confirmation, as a draft if work is blocked. Every call is logged and summarized in the PR. The rules live in one file, `owned/align/AUTO.md`, and each pause points to it.
+- **Why:** separating who asks from who answers keeps grilling honest, and the log plus the PR review keep the user in control after the fact. Stopping at the PR leaves the merge to the user.
+- **Rejected:** the orchestrator accepting its own recommendations (nobody pushes back), merging into main, auto carrying over to a resume without the flag, and letting `--auto` start slash-only skills such as `/dev-multi`.

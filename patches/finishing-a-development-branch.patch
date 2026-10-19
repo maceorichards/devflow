@@ -1,16 +1,23 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 04:24:17
-@@ -52,6 +52,8 @@
+--- a/SKILL.md	2026-10-19 13:08:29
++++ b/SKILL.md	2026-10-19 15:15:10
+@@ -48,10 +48,14 @@
+ The base branch is whatever this work forked from — usually named in the
+ plan, the conversation, or the branch's upstream. If it is not already
+ known, ask: "This branch split from <your best guess> - is that correct?"
+-Confirm before merging: merging into the wrong base is expensive to undo.
++Confirm before merging: merging into the wrong base is expensive to undo. (**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: use the base the caller passed, or `base_branch` from its state file; don't ask.)
  
  ## Step 4: Present Options
  
 +**Preselected option (devflow).** When a calling workflow preselects an option (`/dev-single` and `/dev-multi` preselect 2 against the feature's base; `run-lanes` preselects 1 into the integration branch), state the plan in one line and ask a single confirmation instead of the menu, e.g. "Push `feat/iss-42-x` and open a PR against `main`? (yes, or pick: merge locally / keep)". The user can still pick another option.
 +
++**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: skip the confirmation and run the preselected option (open the PR as a draft if the caller says so). Every other rule still holds: never force, never discard, never push to the base branch, and a refused worktree removal keeps the worktree.
++
  **Normal repo and named-branch worktree — present exactly these 3 options:**
  
  ```
-@@ -85,6 +87,8 @@
+@@ -85,6 +89,8 @@
  
  ### Option 1: Merge Locally
  
@@ -19,7 +26,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  ```bash
  # Get main repo root for CWD safety
  MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
-@@ -119,7 +123,7 @@
+@@ -119,7 +125,7 @@
  ```
  
  Then create the pull/merge request against <base-branch> with the forge's

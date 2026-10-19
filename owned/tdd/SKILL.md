@@ -27,7 +27,7 @@ A **seam** is the public boundary you test at: the interface where you observe b
 
 When the shape of an interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), call the Skill tool with `codebase-design` for the vocabulary. It is a reference to consult, not a session to run.
 
-If the repo has no test framework, propose one (pytest for Python) and ask before adding it.
+If the repo has no test framework, propose one (pytest for Python) and ask before adding it. In a devflow auto run, add the recommended one and log it (`align`'s AUTO.md).
 
 ## Outer loop: the tester subagent (main-session mode)
 

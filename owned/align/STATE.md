@@ -25,7 +25,9 @@ Location: `<main checkout>/.claude/docs/runs/iss-<N>.json` (`pending-<slug>.json
     {"number": 44, "title": "Buffer kinetics", "lane": "rigor", "status": "open", "plan": "/abs/...", "branch": "feat/iss-42-ca-buffer-model--t44"}
   ],
   "spec_review_ran": false,
-  "auto_approve_plans": false,
+  "auto": false,
+  "auto_source": null,
+  "auto_since": null,
   "pr": null,
   "updated": "2026-10-17T10:12:00Z"
 }
@@ -34,4 +36,4 @@ Location: `<main checkout>/.claude/docs/runs/iss-<N>.json` (`pending-<slug>.json
 - `mode` is a property of the run. A resume with a different flag changes it from that point on, and the change is recorded here.
 - Ticket `status` is one of `open`, `building`, `closed` or `needs-human`.
 - `spec_review_ran` is set to `true` once `spec-review` has run on the feature branch (by `implement`, or by the workflow's final review). The final review uses it to avoid running `spec-review` twice.
-- `auto_approve_plans` is `true` when the run was started with `--auto-approve-plans`, or the user said during the run to stop pausing for plan approval. Record that instruction here. A resume **without** `--auto-approve-plans` resets it to `false` and says so, so a waiver never carries over silently.
+- `auto` is `true` while the run is in auto mode ([AUTO.md](AUTO.md)): set by `--auto`, or by an explicit user instruction in chat at a pause. `auto_source` is `"flag"` or `"chat"`; `auto_since` is the stage auto started from. A resume **without** `--auto` resets `auto` to `false` and says so, so a waiver never carries over silently. Calls made in auto mode are logged next to this file in `iss-N-decisions.md`.

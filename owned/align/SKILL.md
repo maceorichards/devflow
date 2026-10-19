@@ -7,7 +7,7 @@ description: "Devflow building block: the shared first half of /dev-single and /
 
 The shared first half of every devflow workflow. It turns a feature description into: a feature branch in its own worktree, a resolved design (glossary + ADRs committed on that branch), a spec (GitHub issue #N + local spec file), the user's approval of the spec, and a run-state file the workflow can resume from.
 
-The calling workflow tells you: its name (`dev-single` or `dev-multi`), its mode, and either a feature description or `#N`.
+The calling workflow tells you: its name (`dev-single` or `dev-multi`), its mode, whether auto mode is on, and either a feature description or `#N`. In auto mode, every pause below follows [AUTO.md](AUTO.md), and every skill you call is told it's a devflow auto run.
 
 ## Paths you will use
 
@@ -28,8 +28,8 @@ Check each of these, and stop with a clear message if one fails:
    - If this session is inside a **linked worktree** rather than the main checkout (detect as in `using-git-worktrees` Step 0), stop: "devflow runs from the main checkout. Reopen this session in `<main checkout>` and re-run."
 2. `$MAIN/docs/agents/issue-tracker.md` exists. If not: "Run `/setup-devflow-skills` once in this repo (choose GitHub, single-context domain docs), then re-run."
    - These files are untracked and only the main checkout needs them, so nothing has to be committed or pushed. If the repo has only the old tracked `docs/agents` folder at its root, say so and ask the user to re-run `/setup-devflow-skills`, which moves it.
-3. `git -C "$MAIN" check-ignore -q .claude/docs/x`. If `.claude/docs/` isn't ignored, warn the user (devflow normally ignores it globally) and offer to add it to the repo's `.gitignore`.
-4. The working tree you start from has no uncommitted changes you would carry along. If it does, ask before continuing.
+3. `git -C "$MAIN" check-ignore -q .claude/docs/x`. If `.claude/docs/` isn't ignored, warn the user (devflow normally ignores it globally) and offer to add it to the repo's `.gitignore`. (Auto mode: add it to `$MAIN/.git/info/exclude` instead.)
+4. The working tree you start from has no uncommitted changes you would carry along. If it does, ask before continuing. (Auto mode: stop and report; this is a hard stop.)
 
 ## 1. Feature worktree first
 
@@ -44,11 +44,11 @@ Grilling writes tracked files, so the feature branch must exist *before* grillin
    ```
    Never use the native `EnterWorktree` tool here (see "The orchestrating session stays in the main checkout").
 5. **Baseline:** let `using-git-worktrees` run project setup and the test suite. Record the command and the pass/fail counts, plus the **names** of any failing tests.
-6. Write the provisional state file `$MAIN/.claude/docs/runs/pending-<slug>.json` (schema in [STATE.md](STATE.md)), with stage `worktree`.
+6. Write the provisional state file `$MAIN/.claude/docs/runs/pending-<slug>.json` (schema in [STATE.md](STATE.md)), with stage `worktree`. In auto mode also set the `auto` fields and create the decision log `pending-<slug>-decisions.md` next to it.
 
 ## 2. Grill
 
-Call the Skill tool with `grill-with-docs`, working inside the feature worktree. Glossary terms go in `docs/GLOSSARY.md`; ADRs go in `docs/adr/`. Continue until the user confirms a shared understanding.
+Call the Skill tool with `grill-with-docs`, working inside the feature worktree. Glossary terms go in `docs/GLOSSARY.md`; ADRs go in `docs/adr/`. Continue until the user confirms a shared understanding. In auto mode, the stand-in agent in [AUTO.md](AUTO.md) answers each round and gives that confirmation.
 
 ## 3. Spec
 
@@ -56,7 +56,7 @@ Call the Skill tool with `to-spec`. Pass it the slug and tell it to use devflow 
 
 Then:
 - Rename the branch: `git branch -m feat/iss-N-<slug>`. The worktree folder keeps its name.
-- Rename the state file to `runs/iss-N.json`, fill in `issue`, `spec_path` and `branch`, and set stage `specced`.
+- Rename the state file to `runs/iss-N.json` (and any decision log to `runs/iss-N-decisions.md`), fill in `issue`, `spec_path` and `branch`, and set stage `specced`.
 
 ## 4. Commit the domain docs
 
@@ -73,10 +73,10 @@ This must happen before anything branches off the feature branch, because new wo
 
 ## 5. Spec review (pause)
 
-Give the user the spec file path and the issue URL. Ask them to review it, either by editing the file directly or by telling you what to change. **End your turn and wait.**
+Give the user the spec file path and the issue URL. Ask them to review it, either by editing the file directly or by telling you what to change. **End your turn and wait.** (Auto mode: the stand-in reviews it instead, as in [AUTO.md](AUTO.md).)
 
 - If they changed anything, call `to-spec` again in update mode, so the file and the issue match.
-- **Escalation hint (`dev-single` only):** if the spec clearly contains several independently deliverable pieces, say so and suggest `/dev-multi #N` instead.
+- **Escalation hint (`dev-single` only):** if the spec clearly contains several independently deliverable pieces, say so and suggest `/dev-multi #N` instead. (Auto mode: don't switch; log it for the PR's `## Auto decisions`.)
 
 On approval, set stage `aligned`. Then return control to the calling workflow with: N, slug, spec path, branch, worktree path, base branch.
 

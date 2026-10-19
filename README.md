@@ -6,10 +6,12 @@ My Claude Code skills and workflows. **[SKILLS.md](SKILLS.md) is the current ove
 
 | Command | Use for |
 |---|---|
-| `/dev-single <description> [--rigor]` | One-ticket feature, built in its own worktree and ending in a PR. `--rigor` adds a reviewed plan and subagent-driven execution. |
-| `/dev-multi <description> [--fast \| --rigor]` | Multi-ticket feature. Each ticket gets a fast lane (parallel) or rigor lane (plan + reviewed subagents), with one approval for tickets and lanes together. |
-| `/dev-single #N`, `/dev-multi #N` | Resume a run (or upgrade single → multi) for GitHub issue N. |
+| `/dev-single <description> [--fast \| --rigor] [--auto]` | One-ticket feature, built in its own worktree and ending in a PR. `--rigor` adds a reviewed plan and subagent-driven execution; `--fast` is the default. |
+| `/dev-multi <description> [--fast \| --rigor] [--auto]` | Multi-ticket feature. Each ticket gets a fast lane (parallel) or rigor lane (plan + reviewed subagents), with one approval for tickets and lanes together. |
+| `/dev-single #N`, `/dev-multi #N` (+ flags) | Resume a run (or upgrade single → multi) for GitHub issue N. |
 | *(optional W0)* just ask, or `/tdd` / `/tdd --solo` | Small changes. Only the auto-tier skills run. |
+
+**`--auto`** (either command, at the start or on a resume `#N --auto`, or "go auto from here" in chat at a pause): the run makes its own calls instead of stopping for you. A stand-in agent answers the grilling and reviews the spec; tickets, lanes and plans are approved; the PR opens without a confirmation, as a draft if anything is blocked. Every call is logged in `runs/iss-N-decisions.md` and summarized under `## Auto decisions` in the PR. It never merges, force-pushes or starts a slash command, and a resume without `--auto` turns it off. Details: `owned/align/AUTO.md`.
 
 **Once per repo:** run `/setup-devflow-skills`, choosing GitHub and single-context domain docs (`docs/GLOSSARY.md`, `docs/adr/`). It writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md` and the tracker and domain-doc conventions to the git-ignored `.claude/docs/agents/`. It commits nothing. `setup-devflow-skills` is Matt Pocock's `setup-matt-pocock-skills`, renamed and patched; the manifest's `rewrite` map renames every upstream mention, and moves `docs/agents/` to `.claude/docs/agents/`, at build time.
 

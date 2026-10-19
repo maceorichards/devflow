@@ -16,7 +16,7 @@
 
     {"name": "grill-with-docs", "source": "matt", "path": "skills/engineering/grill-with-docs", "tier": "sub",
      "description": "Devflow building block: grilling interview that also updates docs/GLOSSARY.md and ADRs. Use only when a devflow workflow calls for it, or the user asks for it by name."},
-    {"name": "grilling", "source": "matt", "path": "skills/productivity/grilling", "tier": "sub",
+    {"name": "grilling", "source": "matt", "path": "skills/productivity/grilling", "tier": "sub", "patch": "patches/grilling.patch",
      "description": "Interview primitive behind grill-me and grill-with-docs. Use only when one of those skills calls for it, or the user asks to be grilled."},
     {"name": "domain-modeling", "source": "matt", "path": "skills/engineering/domain-modeling", "tier": "sub", "patch": "patches/domain-modeling.patch",
      "description": "Challenge terms and record them in docs/GLOSSARY.md and ADRs in docs/adr/. Use only when grill-with-docs calls for it, or the user asks for it by name."},
