@@ -6,7 +6,7 @@
   "install_dir": "~/.claude/skills",
   "marker": ".managed-by-devflow",
   "strip_prefix": {"superpowers": "superpowers:"},
-  "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills"},
+  "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills", "docs/agents/": ".claude/docs/agents/"},
   "skills": [
     {"name": "dev-single", "source": "owned", "path": "owned/dev-single", "tier": "slash"},
     {"name": "dev-multi", "source": "owned", "path": "owned/dev-multi", "tier": "slash"},

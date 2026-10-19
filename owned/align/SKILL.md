@@ -27,7 +27,7 @@ Check each of these, and stop with a clear message if one fails:
 1. Inside a git repository whose `origin` is on GitHub, and `gh auth status` succeeds.
    - If this session is inside a **linked worktree** rather than the main checkout (detect as in `using-git-worktrees` Step 0), stop: "devflow runs from the main checkout. Reopen this session in `<main checkout>` and re-run."
 2. `$MAIN/docs/agents/issue-tracker.md` exists. If not: "Run `/setup-devflow-skills` once in this repo (choose GitHub, single-context domain docs), then re-run."
-   - Feature worktrees are cut from `origin/<base>`, so the setup files must be there too: `git -C "$MAIN" cat-file -e origin/<base>:docs/agents/issue-tracker.md` (base as in §1.2). If that fails, say the `docs/agents/` files aren't committed and pushed yet, and offer to commit and push them on `<base>`. (The `## Agent skills` block itself lives in the git-ignored `CLAUDE.local.md`, so it doesn't need pushing.)
+   - These files are untracked and only the main checkout needs them, so nothing has to be committed or pushed. If the repo has only the old tracked `docs/agents` folder at its root, say so and ask the user to re-run `/setup-devflow-skills`, which moves it.
 3. `git -C "$MAIN" check-ignore -q .claude/docs/x`. If `.claude/docs/` isn't ignored, warn the user (devflow normally ignores it globally) and offer to add it to the repo's `.gitignore`.
 4. The working tree you start from has no uncommitted changes you would carry along. If it does, ask before continuing.
 

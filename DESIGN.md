@@ -47,11 +47,12 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 - **Why:** a session inside a native worktree is isolated. Claude Code refuses its writes to the main checkout's `.claude/docs/`, and that check can't be turned off. The native tool also branches from `origin/<default>` under its own branch name, and `ExitWorktree` leaves a renamed branch behind.
 - **Rejected:** Claude Code's native `EnterWorktree` (the original design), and moving agent docs into the worktree (see 5).
 
-## 8. The `## Agent skills` block goes in `CLAUDE.local.md`
+## 8. Per-repo setup commits nothing
 
-- **Decision:** `/setup-devflow-skills` writes the block to the git-ignored `CLAUDE.local.md`, commits only `docs/agents/*.md`, and offers to push them. `align` checks that `origin/<base>` has `docs/agents/issue-tracker.md`.
-- **Why:** worktrees are cut from `origin/<base>`, so the setup files have to be pushed, but the block is devflow configuration that shouldn't need a commit to the project's `CLAUDE.md`. `CLAUDE.local.md` exists only in the main checkout, which is enough because the orchestrator always runs there (see 7).
-- **Rejected:** committing the block to the project's `CLAUDE.md` (the upstream behavior).
+- **Decision:** `/setup-devflow-skills` writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md`, and the tracker and domain-doc conventions to `.claude/docs/agents/` (upstream's `docs/agents/`, moved by the manifest's `rewrite` map). Nothing is committed or pushed.
+- **Why:** only the orchestrator reads these files, and it always runs in the main checkout (see 7), so worktrees and `origin` don't need them. `.claude/docs/` is already ignored globally, so no new ignore rule is needed, and repos that track their own `docs/agents/` are unaffected.
+- **Cost accepted:** a fresh clone, another machine or a cloud session needs setup re-run.
+- **Rejected:** committing the block to `CLAUDE.md` and the conventions to `docs/agents/` (the upstream behavior), and a global `docs/agents/` ignore rule.
 
 ## 9. SDD skips its own final review for devflow callers
 

@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 17:50:06
+--- a/SKILL.md	2026-10-19 13:07:36
++++ b/SKILL.md	2026-10-19 13:07:51
 @@ -4,7 +4,7 @@
  disable-model-invocation: true
  ---
@@ -10,7 +10,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  Scaffold the per-repo configuration that the engineering skills assume:
  
-@@ -21,8 +21,8 @@
+@@ -21,10 +21,11 @@
  Look at the current repo to understand its starting state. Read whatever exists; don't assume:
  
  - `git remote -v` and `.git/config`: is this a GitHub repo? Which one?
@@ -20,8 +20,11 @@ diff -ruN a/SKILL.md b/SKILL.md
 +- `docs/GLOSSARY.md` (devflow layout), and `GLOSSARY.md` / `GLOSSARY-MAP.md` at the repo root
  - `docs/adr/` and any `src/*/docs/adr/` directories
  - `docs/agents/`: does this skill's prior output already exist?
++  - A tracked `docs/agents` folder at the repo root (from an earlier setup) is the old location: offer to move its files here, then `git rm -r --cached docs/agents` and commit that removal.
  - `.scratch/`: a sign that a local-markdown issue tracker convention is already in use
-@@ -56,7 +56,7 @@
+ - Is the `triage` skill installed? (a `triage` skill folder alongside this one, or `triage` in your available skills.) This decides whether Section B runs at all.
+ - Monorepo signals: a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. These are present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
+@@ -56,7 +57,7 @@
  
  The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
  
@@ -30,7 +33,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  Offer **multi-context** (a root `GLOSSARY-MAP.md` pointing to per-context `GLOSSARY.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
  
-@@ -64,23 +64,20 @@
+@@ -64,23 +65,20 @@
  
  Show the user a draft of:
  
@@ -51,7 +54,7 @@ diff -ruN a/SKILL.md b/SKILL.md
 +- Check it's ignored: `git check-ignore -q CLAUDE.local.md`. devflow ignores it globally; if it isn't ignored, offer to add `CLAUDE.local.md` to the repo's `.gitignore`.
 +- If an `## Agent skills` block already exists in `CLAUDE.md` or `AGENTS.md`, ask whether to move it to `CLAUDE.local.md` (recommended) or leave it where it is. Never keep two copies.
 +- If an `## Agent skills` block already exists in `CLAUDE.local.md`, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
-+- `CLAUDE.local.md` exists only in the main checkout. That's enough: devflow's orchestrating session always runs there, and the skills read `docs/agents/*.md` from the main checkout by absolute path.
++- `CLAUDE.local.md` and `docs/agents/` exist only in the main checkout. That's enough: devflow's orchestrating session always runs there and reads them from the main checkout.
  
 -Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
 -
@@ -60,17 +63,17 @@ diff -ruN a/SKILL.md b/SKILL.md
  The block:
  
  ```markdown
-@@ -115,4 +112,6 @@
+@@ -114,5 +112,7 @@
+ For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
  
  ### 5. Done
- 
--Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
-+Commit the `docs/agents/*.md` files (not `CLAUDE.local.md`) on the default branch: `git add docs/agents && git commit -m "chore: devflow agent docs (issue tracker, domain docs)"`. Then offer to push. devflow feature worktrees are cut from `origin/<default>`, so the files must be pushed before the first `/dev-single` or `/dev-multi`.
 +
-+Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later (commit and push the change); re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
++Check that `docs/agents/` is ignored: `git check-ignore -q docs/agents/x`. devflow ignores `.claude/docs/` globally; if it isn't ignored, offer to add `.claude/docs/` to `.git/info/exclude`. Commit nothing: these files stay untracked in the main checkout, where devflow's orchestrating session reads them.
+ 
+ Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
 diff -ruN a/domain.md b/domain.md
---- a/domain.md	2026-10-17 04:16:14
-+++ b/domain.md	2026-10-17 17:49:42
+--- a/domain.md	2026-10-19 13:07:36
++++ b/domain.md	2026-10-19 13:07:36
 @@ -4,7 +4,7 @@
  
  ## Before exploring, read these
@@ -97,8 +100,8 @@ diff -ruN a/domain.md b/domain.md
  ```
  
 diff -ruN a/issue-tracker-github.md b/issue-tracker-github.md
---- a/issue-tracker-github.md	2026-10-17 04:16:14
-+++ b/issue-tracker-github.md	2026-10-17 17:50:06
+--- a/issue-tracker-github.md	2026-10-19 13:07:36
++++ b/issue-tracker-github.md	2026-10-19 13:07:36
 @@ -16,7 +16,7 @@
  
  ## Pull requests as a triage surface
