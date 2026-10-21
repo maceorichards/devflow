@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 17:50:50
+--- a/SKILL.md	2026-10-21 16:40:13
++++ b/SKILL.md	2026-10-21 16:44:07
 @@ -38,7 +38,7 @@
  
  **If `GIT_DIR == GIT_COMMON` (or in a submodule):** You are in a normal repo checkout.
@@ -43,7 +43,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  
 -git worktree add "$path" -b "$BRANCH_NAME"
 -cd "$path"
-+git worktree add "$path" -b "$BRANCH_NAME" $BASE_REF   # BASE_REF: the base the caller asked for (empty = HEAD)
++git worktree add --no-track "$path" -b "$BRANCH_NAME" $BASE_REF   # BASE_REF: the base the caller asked for (empty = HEAD)
 +cd "$path"   # not for devflow callers: they stay in the main checkout and use absolute paths
  ```
  
