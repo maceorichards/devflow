@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-19 13:07:36
-+++ b/SKILL.md	2026-10-19 15:15:10
+--- a/SKILL.md	2026-10-21 16:40:10
++++ b/SKILL.md	2026-10-21 16:44:07
 @@ -8,15 +8,25 @@
  
  The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
@@ -14,7 +14,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
  
 -Check with the user that these seams match their expectations.
-+Check with the user that these seams match their expectations. (**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: the stand-in agent checks them instead.)
++Check with the user that these seams match their expectations, unless grilling already agreed the seams; then record them under Testing Decisions without asking. (**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: the stand-in agent checks them instead.)
  
 -3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 +3. Write the spec using the template below, then publish it:

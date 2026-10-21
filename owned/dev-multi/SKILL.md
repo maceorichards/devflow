@@ -24,7 +24,6 @@ Arguments: `$ARGUMENTS`
 - State the mode in one line before doing anything else, adding `, AUTO` when auto mode is on.
 
 **Resuming (`#N`):** follow the Resume section of the `align` skill, then continue from the recorded stage. If the mode differs from the state file's, update it and say so. A mode change only re-labels tickets that are still `open`. `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false` and say so.
-- **Report the resume** before continuing: parent `#N` and its title, the recorded stage, the mode (and any change), a ticket table (number, title, lane, status) when the run has tickets, and what happens next. Never refer to a ticket number in a way that could read as a different feature.
 
 **Upgrading from `/dev-single`:** if the state file says `dev-single` and no build has started, switch it to `dev-multi` and continue at step 3.
 
@@ -59,13 +58,13 @@ It returns once every ticket is closed or marked `needs-human`. Set stage `built
 
 If any tickets are `needs-human`, show them to the user and ask whether to finish anyway (the PR will list them as open) or stop here so the user can resolve them and resume with `/dev-multi #N`. (Auto mode: finish anyway, and open the PR as a draft.)
 
-## 5. Final review (stage `reviewed`), on the integration branch
+## 5. Final review (stage `reviewed`; by absolute path, never `cd`), on the integration branch
 
-Let `BASE=$(git merge-base origin/<base> HEAD)`.
+Let `BASE=$(git -C "$WT" merge-base origin/<base> HEAD)`, where `$WT` is the integration worktree.
 
 1. Call the Skill tool with `spec-review`, using fixed point `BASE` and the absolute spec path. Set `spec_review_ran: true` in the state file.
 2. Call the Skill tool with the built-in `code-review` on the same range.
-3. Dispatch **one** fix subagent, in the integration worktree, with all Critical and Important findings. Minor findings go into the PR description under "Follow-ups".
+3. Dispatch **one** fix subagent, in the integration worktree, with all Critical and Important findings, except any that target acceptance tests: those go under `## Follow-ups` as rulings for the user and don't count as remaining in step 6. Minor findings go into the PR description under "Follow-ups".
 4. Call the Skill tool with `verification-before-completion`: full suite, every failure by name, compared with the baseline.
 
 ## 6. Finish (stage `finished`)

@@ -61,5 +61,5 @@ Merge a PR, push to `main`/`master` or the base branch, force anything, discard 
 
 ## Finishing
 
-- **Work you couldn't finish** (`needs-human` tickets, Critical or Important findings left after the one fix pass, or failing verification): finish everything else, push, and open the PR as a **draft** (`gh pr create --draft`). Its body lists what's blocked and why. Then stop.
+- **Work you couldn't finish** (`needs-human` tickets, Critical or Important findings left after the one fix pass (not those ruled into `## Follow-ups` because they target acceptance tests), or failing verification): finish everything else, push, and open the PR as a **draft** (`gh pr create --draft`). Its body lists what's blocked and why. Then stop.
 - **Every auto PR** gets a `## Auto decisions` section after `## Follow-ups`. It summarizes the decision log: the stand-in's overrides, the lanes, the plans approved, the rulings, the escalation hint if any, and the first stage that ran in auto (`auto_since`).

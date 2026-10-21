@@ -50,8 +50,9 @@ Rules:
 - Write stubs for interfaces that don't exist yet: the exact signatures from the brief,
   with bodies that raise NotImplementedError (or the language's equivalent). Nothing else.
   Exception: in an interfaces-first ticket the stubs ARE the deliverable. Write none, and
-  pin only what stays true after later tickets land (names, parameters, shared types),
-  never "raises NotImplementedError". The expected failure is then ImportError/AttributeError.
+  pin only what stays true after later tickets land: public import paths, names, signatures
+  and shared types, never which private module holds an implementation or "raises
+  NotImplementedError". The expected failure is then ImportError/AttributeError.
 - Write black-box tests at the agreed seams only, through public interfaces. One logical
   assertion per test. Name tests by behavior.
 - Expected values come only from the sources in the brief, never from running code.

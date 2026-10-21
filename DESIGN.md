@@ -71,3 +71,21 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 - **Decision:** `--auto` is the user's permission for one run to make the calls it would otherwise stop for. A fresh stand-in subagent answers the grilling rounds and reviews the spec; tickets, lanes and plans are approved; the PR opens without a confirmation, as a draft if work is blocked. Every call is logged and summarized in the PR. The rules live in one file, `owned/align/AUTO.md`, and each pause points to it.
 - **Why:** separating who asks from who answers keeps grilling honest, and the log plus the PR review keep the user in control after the fact. Stopping at the PR leaves the merge to the user.
 - **Rejected:** the orchestrator accepting its own recommendations (nobody pushes back), merging into main, auto carrying over to a resume without the flag, and letting `--auto` start slash-only skills such as `/dev-multi`.
+
+## 12. ADRs are named by issue; a single-context glossary is headed by the repo name
+
+- **Decision:** a new ADR is `docs/adr/iss-N-<slug>.md`, where N is the feature's issue. Existing numbered ADRs stay as they are. A single-context glossary's top heading is the repo name, never a feature's context name. `align`'s overlapping-PR check also flags open PRs that touch the glossary or ADRs.
+- **Why:** in the smoke runs, parallel features collided on ADR numbers and glossary headings. Issue numbers are already unique, and a fixed heading leaves parallel branches differing only in their term entries.
+- **Rejected:** sequential numbering (parallel branches pick the same number), reserving numbers at merge (a rename after review), and committing a glossary stub to the base branch (devflow commits nothing on base).
+
+## 13. The base branch is asked for at setup
+
+- **Decision:** `/setup-devflow-skills` asks which branch features start from and open PRs against, defaulting to the GitHub default branch, and records a `Base branch:` line in the tracker conventions (see 8). `align` reads that line; when it's missing, `align` falls back to the GitHub default and states that base in the first grilling round.
+- **Why:** devflow used to assume the GitHub default silently, which is wrong for repos that work on `develop`. Asking once at setup costs one question; the fallback keeps repos set up earlier working, and stating the base lets you correct it.
+- **Rejected:** always using the GitHub default branch, and asking on every run.
+
+## 14. Fixes have a context budget
+
+- **Decision:** every fix stays within a context budget. It edits an existing sentence, moves logic into a script, or moves text into a file loaded on demand (like `align`'s AUTO.md). Each changed skill file grows by about +30 words at most, measured with `wc -w` on the built skill.
+- **Why:** every word in a SKILL.md is context the model carries through a run. Long skills are slower to follow and easier to misread, which caused several of the defects these fixes address.
+- **Rejected:** a paragraph per fix.
