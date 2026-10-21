@@ -80,7 +80,7 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 
 ## 13. The base branch is asked for at setup
 
-- **Decision:** `/setup-devflow-skills` asks which branch features start from and open PRs against, defaulting to the GitHub default branch, and records a `Base branch:` line in the tracker conventions (see 8). `align` reads that line; when it's missing, `align` falls back to the GitHub default and states that base in the first grilling round.
+- **Decision:** For a GitHub tracker, `/setup-devflow-skills` asks which branch features start from and open PRs against, defaulting to the GitHub default branch, and records a `Base branch:` line in the tracker conventions (see 8). `align` reads that line; when it's missing or unfilled, `align` falls back to the GitHub default and states that base in the first grilling round.
 - **Why:** devflow used to assume the GitHub default silently, which is wrong for repos that work on `develop`. Asking once at setup costs one question; the fallback keeps repos set up earlier working, and stating the base lets you correct it.
 - **Rejected:** always using the GitHub default branch, and asking on every run.
 
