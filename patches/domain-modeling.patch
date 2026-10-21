@@ -1,6 +1,6 @@
 diff -ruN a/ADR-FORMAT.md b/ADR-FORMAT.md
---- a/ADR-FORMAT.md	2026-10-21 16:40:10
-+++ b/ADR-FORMAT.md	2026-10-21 16:44:07
+--- a/ADR-FORMAT.md	2026-10-21 14:32:12
++++ b/ADR-FORMAT.md	2026-10-21 16:51:15
 @@ -1,6 +1,6 @@
  # ADR Format
  
@@ -19,8 +19,8 @@ diff -ruN a/ADR-FORMAT.md b/ADR-FORMAT.md
  ## When to offer an ADR
  
 diff -ruN a/GLOSSARY-FORMAT.md b/GLOSSARY-FORMAT.md
---- a/GLOSSARY-FORMAT.md	2026-10-21 16:40:10
-+++ b/GLOSSARY-FORMAT.md	2026-10-21 16:44:07
+--- a/GLOSSARY-FORMAT.md	2026-10-21 14:32:12
++++ b/GLOSSARY-FORMAT.md	2026-10-21 16:51:15
 @@ -31,7 +31,7 @@
  
  ## Single vs multi-context repos
@@ -41,9 +41,9 @@ diff -ruN a/GLOSSARY-FORMAT.md b/GLOSSARY-FORMAT.md
  
  When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 16:40:10
-+++ b/SKILL.md	2026-10-21 16:43:28
-@@ -13,8 +13,8 @@
+--- a/SKILL.md	2026-10-21 14:32:12
++++ b/SKILL.md	2026-10-21 16:52:24
+@@ -13,11 +13,11 @@
  
  ```
  /
@@ -51,8 +51,13 @@ diff -ruN a/SKILL.md b/SKILL.md
  ├── docs/
 +│   ├── GLOSSARY.md
  │   └── adr/
- │       ├── 0001-event-sourced-orders.md
- │       └── 0002-postgres-for-write-model.md
+-│       ├── 0001-event-sourced-orders.md
+-│       └── 0002-postgres-for-write-model.md
++│       ├── iss-12-event-sourced-orders.md
++│       └── iss-15-postgres-for-write-model.md
+ └── src/
+ ```
+ 
 @@ -37,7 +37,7 @@
  │       └── docs/adr/
  ```

@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 16:39:59
-+++ b/SKILL.md	2026-10-21 16:42:09
+--- a/SKILL.md	2026-10-21 14:32:12
++++ b/SKILL.md	2026-10-21 16:51:15
 @@ -4,7 +4,7 @@
  disable-model-invocation: true
  ---
@@ -81,8 +81,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
 diff -ruN a/domain.md b/domain.md
---- a/domain.md	2026-10-21 16:39:59
-+++ b/domain.md	2026-10-21 16:42:09
+--- a/domain.md	2026-10-21 14:32:12
++++ b/domain.md	2026-10-21 16:52:24
 @@ -4,11 +4,11 @@
  
  ## Before exploring, read these
@@ -108,14 +108,14 @@ diff -ruN a/domain.md b/domain.md
 +├── docs/
 +│   ├── GLOSSARY.md
 +│   └── adr/
-+│       ├── 0001-event-sourced-orders.md
-+│       └── 0002-postgres-for-write-model.md
++│       ├── iss-12-event-sourced-orders.md
++│       └── iss-15-postgres-for-write-model.md
  └── src/
  ```
  
 diff -ruN a/issue-tracker-github.md b/issue-tracker-github.md
---- a/issue-tracker-github.md	2026-10-21 16:39:59
-+++ b/issue-tracker-github.md	2026-10-21 16:42:09
+--- a/issue-tracker-github.md	2026-10-21 14:32:12
++++ b/issue-tracker-github.md	2026-10-21 16:51:15
 @@ -14,9 +14,15 @@
  
  Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.

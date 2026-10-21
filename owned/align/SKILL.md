@@ -81,13 +81,11 @@ On approval, set stage `aligned`. Then return control to the calling workflow wi
 
 When a workflow is invoked with `#N`, after preflight:
 
-1. Read `$MAIN/.claude/docs/runs/iss-N.json`.
-2. **If it's missing, rebuild it:**
+1. Read `$MAIN/.claude/docs/runs/iss-N.json`. **If it's missing, reconstruct it in memory:**
    - spec from `$MAIN/.claude/docs/specs/iss-N-*.md` (or the issue body),
    - branch from `git branch --list 'feat/iss-N-*'`,
    - worktree from `git worktree list`,
    - tickets from the issue's sub-issues.
 
    Tell the user what you reconstructed.
-3. **If the branch exists but has no worktree,** re-create one for it: `git worktree add "$MAIN/.worktrees/feat-iss-N-<slug>" feat/iss-N-<slug>`.
-4. **Report** before any state-changing tool call: a heading, parent issue #N and its title, the recorded stage, the mode and any change, the ticket table if there are tickets, and the next step. Never refer to a ticket number in a way that could read as a different feature. Then continue: here if the stage is before `aligned`, otherwise in the workflow.
+2. **Report** before any state-changing tool call: a heading, parent issue #N and its title, the recorded stage, the mode and any change, the ticket table if there are tickets, and the next step. Never refer to a ticket number in a way that could read as a different feature. Only then write a rebuilt state file, re-create a missing worktree (`git worktree add "$MAIN/.worktrees/feat-iss-N-<slug>" feat/iss-N-<slug>`), and continue: here if the stage is before `aligned`, otherwise in the workflow.

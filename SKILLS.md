@@ -37,10 +37,10 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 
 | Skill | Tier | What it does | devflow changes |
 |---|---|---|---|
-| `setup-devflow-skills` | slash | Per-repo setup: issue tracker, labels, domain-doc layout | **Renamed** from `setup-matt-pocock-skills`; block goes to `CLAUDE.local.md`; conventions go to `.claude/docs/agents/` (manifest `rewrite`); commits nothing; GitHub template trimmed to sub-issues and blocking |
+| `setup-devflow-skills` | slash | Per-repo setup: issue tracker, labels, base branch, domain-doc layout | **Renamed** from `setup-matt-pocock-skills`; block goes to `CLAUDE.local.md`; conventions go to `.claude/docs/agents/` (manifest `rewrite`); commits nothing; GitHub template trimmed to sub-issues and blocking; records a `Base branch:` line |
 | `grill-with-docs` | sub | Calls `grilling` + `domain-modeling` | description only |
 | `grilling` | sub | Interviews you in rounds of numbered questions with recommended answers | description only |
-| `domain-modeling` | sub | Challenges terms and writes `docs/GLOSSARY.md` and ADRs | patched: `docs/GLOSSARY.md` path |
+| `domain-modeling` | sub | Challenges terms and writes `docs/GLOSSARY.md` and ADRs | patched: `docs/GLOSSARY.md` path; glossary heading is the repo name; ADRs named by issue |
 | `to-spec` | sub | Spec → GitHub issue #N + local spec file | patched: devflow storage |
 | `to-tickets` | sub | Spec → sub-issue tickets with native blocking, interfaces-first ticket, footprints, lanes, overlap check | patched |
 | `implement` | sub | Builds one spec inline with `tdd`, then `spec-review` | patched |
@@ -74,12 +74,12 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 - `fast`: built in parallel. For each ticket, a tester commits acceptance tests, then an implementer (with `tdd`) builds it, then a merger merges into the integration worktree, runs the suite and closes the ticket.
 - `rigor`: built one at a time. `writing-plans` against the current integration tip → your approval (skipped in auto mode) → SDD in a ticket worktree → `finishing-a-development-branch` merges it locally → the ticket closes.
 - The two lanes take turns. A rigor ticket's worktree is cut only after the fast batch has returned. A ticket becomes `needs-human` when SDD's fix loop can't resolve a finding, when an implementer is blocked twice, or when a merge fails its tests.
-- **Interfaces-first ticket:** its stubs are the deliverable. Its tests pin only names, signatures and shared types, so they stay true after later tickets land.
+- **Interfaces-first ticket:** its stubs are the deliverable. Its tests pin only public import paths, names, signatures and shared types, so they stay true after later tickets land.
 
 **Reviews, in order.**
 1. Every task or ticket: an independent tester writes the acceptance tests first, and implementers may never change them.
 2. Rigor work: SDD runs a task review (spec compliance + quality) on every task.
-3. Every feature: `spec-review` + the built-in `code-review` over the whole branch, then one fix subagent for Critical/Important findings. Minor findings go under Follow-ups in the PR.
+3. Every feature: `spec-review` + the built-in `code-review` over the whole branch, then one fix subagent for Critical/Important findings. Those that target acceptance tests aren't fixed: they go under Follow-ups as rulings for you. Minor findings go under Follow-ups in the PR.
 4. `verification-before-completion`, compared with the baseline.
 5. Push + PR, after one confirmation.
 
@@ -100,6 +100,7 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 | Plan | `<main>/.claude/docs/plans/YYYY-MM-DD-iss-N[-t<T>]-<slug>.md` |
 | Run state | `<main>/.claude/docs/runs/iss-N.json` (`pending-<slug>.json` before #N exists). Stages: `worktree → specced → aligned → ticketed → building → built → reviewed → finished` |
 | SDD ledger | `<ticket or feature worktree>/.superpowers/sdd/<plan>/progress.md` |
+| ADR | `docs/adr/iss-N-<slug>.md` (older `0001-<slug>.md` files keep their names) |
 | Domain-docs commit | `docs(iss-N): glossary`, `… ADRs` or `… glossary and ADRs` (only what changed) |
 | Acceptance-test commit | `test(iss-N): …`, `test(iss-N-t<T>): …` or `test(<scope> task K): acceptance tests` |
 | Implementation commit | `feat(iss-N[-t<T>]): <what>` |

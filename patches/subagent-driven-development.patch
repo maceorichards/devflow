@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 16:40:18
-+++ b/SKILL.md	2026-10-21 16:43:00
+--- a/SKILL.md	2026-10-21 14:32:11
++++ b/SKILL.md	2026-10-21 16:52:03
 @@ -32,30 +32,8 @@
  
  ## When to Use
@@ -93,6 +93,15 @@ diff -ruN a/SKILL.md b/SKILL.md
  - The global-constraints block you hand the reviewer is its attention
    lens. Copy the binding requirements verbatim from the plan's Global
    Constraints section or the spec: exact values, exact formats, and the
+@@ -393,7 +384,7 @@
+ covering test files in the fix message — a one-line fix does not need the
+ whole suite.
+ 
+-**The re-review is scoped.** Run `bash scripts/review-package PLAN_FILE FIX_BASE HEAD`
++**The re-review is scoped.** Run `bash scripts/review-package PLAN_FILE FIX_BASE HEAD "" TEST_COMMIT`
+ where FIX_BASE is the head the previous review saw, and dispatch
+ [re-review-prompt.md](re-review-prompt.md) with the findings list, the
+ brief, the report file, and the printed diff path. The re-reviewer verdicts
 @@ -444,6 +435,8 @@
  
  ## Final Review
@@ -119,8 +128,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  ## Common Rationalizations
  
 diff -ruN a/implementer-prompt.md b/implementer-prompt.md
---- a/implementer-prompt.md	2026-10-21 16:40:18
-+++ b/implementer-prompt.md	2026-10-21 16:42:20
+--- a/implementer-prompt.md	2026-10-21 14:32:11
++++ b/implementer-prompt.md	2026-10-21 16:51:15
 @@ -33,11 +33,14 @@
  
      Once you're clear on requirements:
@@ -160,9 +169,9 @@ diff -ruN a/implementer-prompt.md b/implementer-prompt.md
      If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
      itself — the controller acts on it directly.
 diff -ruN a/scripts/review-package b/scripts/review-package
---- a/scripts/review-package	2026-10-21 16:40:18
-+++ b/scripts/review-package	2026-10-21 16:43:00
-@@ -4,30 +4,35 @@
+--- a/scripts/review-package	2026-10-21 14:32:11
++++ b/scripts/review-package	2026-10-21 16:51:59
+@@ -4,30 +4,37 @@
  # call. Using the recorded per-task BASE (not HEAD~1) keeps multi-commit
  # tasks intact.
  #
@@ -171,8 +180,10 @@ diff -ruN a/scripts/review-package b/scripts/review-package
  # Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/review-<base7>..<head7>.diff
  # (named per range, so a re-review after fixes gets a distinct fresh file).
 +# An empty OUTFILE ("") also means the default. TEST_COMMIT adds an
-+# "Acceptance-test changes" section: the files that commit added or changed,
-+# diffed TEST_COMMIT..HEAD ("none" when untouched).
++# "Acceptance-test changes" section: the test files that commit added or
++# changed (all its files if none look like tests), diffed TEST_COMMIT..HEAD
++# ("none" when untouched). Stubs the tester added are left out, so the
++# implementer filling them in is not shown as a test change.
  set -euo pipefail
  
 -if [ $# -lt 3 ] || [ $# -gt 4 ]; then
@@ -202,15 +213,35 @@ diff -ruN a/scripts/review-package b/scripts/review-package
    out=$4
  else
    # Invoke via bash rather than direct exec: some extractors (Python zipfile)
-@@ -45,6 +50,17 @@
+@@ -36,6 +43,14 @@
+   out="$dir/review-$(git rev-parse --short "$base")..$(git rev-parse --short "$head").diff"
+ fi
+ 
++# A test path has a test/tests/spec/__tests__ directory segment or a test-style
++# basename (test_*, *_test.*, *.test.*, *.spec.*, *Test.*, *Tests.*).
++is_test_path() {
++  case "/$1" in */test/*|*/tests/*|*/spec/*|*/__tests__/*) return 0 ;; esac
++  case "${1##*/}" in test_*|*_test.*|*.test.*|*.spec.*|*Test.*|*Tests.*) return 0 ;; esac
++  return 1
++}
++
+ {
+   echo "# Review package: ${base}..${head}"
+   echo
+@@ -45,6 +60,22 @@
    echo "## Files changed"
    git diff --stat "${base}..${head}"
    echo
 +  if [ -n "$tc" ]; then
-+    # Acceptance-test files = what TEST_COMMIT itself added or changed.
++    # Acceptance-test files = the test files TEST_COMMIT added or changed;
++    # every file it touched when none match a test-path pattern.
 +    files=()
-+    while IFS= read -r f; do files+=("$f"); done \
-+      < <(git diff-tree --root --no-commit-id --name-only -r --diff-filter=d "$tc")
++    all=()
++    while IFS= read -r f; do
++      all+=("$f")
++      if is_test_path "$f"; then files+=("$f"); fi
++    done < <(git diff-tree --root --no-commit-id --name-only -r --diff-filter=d "$tc")
++    if [ ${#files[@]} -eq 0 ] && [ ${#all[@]} -gt 0 ]; then files=("${all[@]}"); fi
 +    echo "## Acceptance-test changes since $(git rev-parse --short "$tc")"
 +    tdiff=""
 +    [ ${#files[@]} -eq 0 ] || tdiff=$(git diff -U10 "${tc}..${head}" -- "${files[@]}")
@@ -221,8 +252,8 @@ diff -ruN a/scripts/review-package b/scripts/review-package
    git diff -U10 "${base}..${head}"
  } > "$out"
 diff -ruN a/scripts/task-brief b/scripts/task-brief
---- a/scripts/task-brief	2026-10-21 16:40:18
-+++ b/scripts/task-brief	2026-10-21 16:43:25
+--- a/scripts/task-brief	2026-10-21 14:32:11
++++ b/scripts/task-brief	2026-10-21 16:51:15
 @@ -3,6 +3,9 @@
  # implementer reads in one call, so the task text never has to be pasted
  # through the controller's context.

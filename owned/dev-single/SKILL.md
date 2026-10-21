@@ -45,7 +45,7 @@ Set stage `built`.
 
 ## 4. Final review (stage `reviewed`; by absolute path, never `cd`)
 
-Let `BASE=$(git merge-base origin/<base> HEAD)`.
+Let `BASE=$(git -C "$WT" merge-base origin/<base> HEAD)`, where `$WT` is the feature worktree.
 
 1. If the state file's `spec_review_ran` is `false` (RIGOR mode), call the Skill tool with `spec-review`. Use fixed point `BASE` and the absolute spec path. Then set it to `true`.
 2. Call the Skill tool with the built-in `code-review` (correctness bugs) on the branch diff against `BASE`.

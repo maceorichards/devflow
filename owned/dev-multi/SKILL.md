@@ -60,7 +60,7 @@ If any tickets are `needs-human`, show them to the user and ask whether to finis
 
 ## 5. Final review (stage `reviewed`; by absolute path, never `cd`), on the integration branch
 
-Let `BASE=$(git merge-base origin/<base> HEAD)`.
+Let `BASE=$(git -C "$WT" merge-base origin/<base> HEAD)`, where `$WT` is the integration worktree.
 
 1. Call the Skill tool with `spec-review`, using fixed point `BASE` and the absolute spec path. Set `spec_review_ran: true` in the state file.
 2. Call the Skill tool with the built-in `code-review` on the same range.
