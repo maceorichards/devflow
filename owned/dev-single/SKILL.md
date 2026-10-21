@@ -19,9 +19,9 @@ Arguments: `$ARGUMENTS`
 - No description and no `#N` → ask for a one-line feature description and stop.
 - Before doing anything else, state the mode in one line, for example: `/dev-single, FAST mode, new feature: "<description>"`, `/dev-single, FAST mode, AUTO, new feature: "<description>"` or `/dev-single, RIGOR mode, resuming #42`.
 
-**Resuming (`#N`):** follow the Resume section of the `align` skill, then continue from the recorded stage.
-- If the state file's `mode` differs from this invocation's mode, update it and say so.
-- `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false` and say so.
+**Resuming (`#N`):** follow the Resume section of the `align` skill, whose report states the changes below; then make them and continue from the recorded stage.
+- If the state file's `mode` differs from this invocation's mode, update it.
+- `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false`.
 - If the run already has tickets (it was a `/dev-multi` run), stop and tell the user to continue with `/dev-multi #N`.
 
 ## 2. Align

@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 14:32:12
-+++ b/SKILL.md	2026-10-21 16:51:15
+--- a/SKILL.md	2026-10-17 04:16:14
++++ b/SKILL.md	2026-10-21 17:40:44
 @@ -4,7 +4,7 @@
  disable-model-invocation: true
  ---
@@ -29,7 +29,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
  
 -Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
-+Also ask which base branch features start from and open PRs against: default to the GitHub default branch, offering other long-lived remote branches like `develop`. Record the choices in `docs/agents/issue-tracker.md`, filling its `Base branch:` line. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
++For GitHub, also ask which base branch features start from and open PRs against: the default branch, or another long-lived branch like `develop`. Record the choices in `docs/agents/issue-tracker.md`, filling its `Base branch:` line. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
  
  **Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
  
@@ -81,8 +81,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
 diff -ruN a/domain.md b/domain.md
---- a/domain.md	2026-10-21 14:32:12
-+++ b/domain.md	2026-10-21 16:52:24
+--- a/domain.md	2026-10-17 04:16:14
++++ b/domain.md	2026-10-21 17:40:44
 @@ -4,11 +4,11 @@
  
  ## Before exploring, read these
@@ -113,9 +113,15 @@ diff -ruN a/domain.md b/domain.md
  └── src/
  ```
  
+@@ -48,4 +49,4 @@
+ 
+ If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
+ 
+-> _Contradicts ADR-0007 (event-sourced orders), but worth reopening because…_
++> _Contradicts ADR iss-12-event-sourced-orders, but worth reopening because…_
 diff -ruN a/issue-tracker-github.md b/issue-tracker-github.md
---- a/issue-tracker-github.md	2026-10-21 14:32:12
-+++ b/issue-tracker-github.md	2026-10-21 16:51:15
+--- a/issue-tracker-github.md	2026-10-17 04:16:14
++++ b/issue-tracker-github.md	2026-10-21 17:39:57
 @@ -14,9 +14,15 @@
  
  Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.

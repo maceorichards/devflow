@@ -33,12 +33,12 @@ Check each of these, and stop with a clear message if one fails:
 
 ## 1. Feature worktree first
 
-Grilling writes tracked files, so the feature branch must exist *before* grilling.
+Grilling writes tracked files, so the feature branch must exist first.
 
 1. **Slug:** kebab-case from the description, at most 40 characters.
-2. **Base branch:** the `Base branch: <name>` line in `$MAIN/docs/agents/issue-tracker.md`. If it's missing, use the default branch (`gh repo view --json defaultBranchRef -q .defaultBranchRef.name`) and state it in the first grilling round. Run `git fetch origin <base>`.
+2. **Base branch:** the `Base branch: <name>` line in `$MAIN/docs/agents/issue-tracker.md`. If it's missing or still `<name>`, use the default branch (`gh repo view --json defaultBranchRef -q .defaultBranchRef.name`) and state it in the first grilling round. Run `git fetch origin <base>`.
 3. **Overlapping open PRs:** list open PRs (`gh pr list --state open --json number,title,files`) whose files the feature will likely touch, or that touch `docs/GLOSSARY.md` or `docs/adr/`. Mention them in the first grilling round (dependency on unmerged code, likely merge conflicts).
-4. **Create the worktree:** call the Skill tool with `using-git-worktrees`. The user invoking the workflow is consent; don't ask again. Request branch `feat/<slug>` based on `origin/<base>`, created with:
+4. **Create the worktree:** call the Skill tool with `using-git-worktrees`. Invoking the workflow is consent; don't ask again. Request branch `feat/<slug>` based on `origin/<base>`, created with:
    ```bash
    git -C "$MAIN" worktree add --no-track "$MAIN/.worktrees/feat-<slug>" -b feat/<slug> origin/<base>
    ```
@@ -66,7 +66,7 @@ git -C "$WT" add docs/GLOSSARY.md docs/adr
 git -C "$WT" commit -m "docs(iss-N): <glossary | ADRs | glossary and ADRs>"
 ```
 
-This must happen before anything branches off the feature branch, because new worktrees only contain committed work.
+Do this before anything branches off the feature branch: new worktrees contain only committed work.
 
 ## 5. Spec review (pause)
 
@@ -88,4 +88,4 @@ When a workflow is invoked with `#N`, after preflight:
    - tickets from the issue's sub-issues.
 
    Tell the user what you reconstructed.
-2. **Report** before any state-changing tool call: a heading, parent issue #N and its title, the recorded stage, the mode and any change, the ticket table if there are tickets, and the next step. Never refer to a ticket number in a way that could read as a different feature. Only then write a rebuilt state file, re-create a missing worktree (`git worktree add "$MAIN/.worktrees/feat-iss-N-<slug>" feat/iss-N-<slug>`), and continue: here if the stage is before `aligned`, otherwise in the workflow.
+2. **Report** before any state-changing tool call: a heading, parent issue #N and its title, the recorded stage, this invocation's mode and auto setting (marking any change), any tickets as a table (number, title, lane, status), and the next step. Never let a ticket number read as a different feature. Only then write a rebuilt state file, re-create a missing worktree (`git worktree add "$MAIN/.worktrees/feat-iss-N-<slug>" feat/iss-N-<slug>`), and continue: here if the stage is before `aligned`, otherwise in the workflow.
