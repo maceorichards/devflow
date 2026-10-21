@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 17:51:27
+--- a/SKILL.md	2026-10-21 16:40:18
++++ b/SKILL.md	2026-10-21 16:43:00
 @@ -32,30 +32,8 @@
  
  ## When to Use
@@ -67,11 +67,29 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  - **Task brief:** before dispatching an implementer, run this skill's
    `bash scripts/task-brief PLAN_FILE N` — it extracts the task's full text to a
+@@ -287,7 +277,7 @@
+ 
+ Implementer subagents report one of four statuses. Handle each appropriately:
+ 
+-**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
++**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD "" TEST_COMMIT`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
+ 
+ **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
+ 
+@@ -314,7 +304,7 @@
+ needed.
+ 
+ - Hand the reviewer its diff as a file: run this skill's
+-  `bash scripts/review-package PLAN_FILE BASE HEAD` and pass the reviewer the file path
++  `bash scripts/review-package PLAN_FILE BASE HEAD "" TEST_COMMIT` and pass the reviewer the file path
+   it prints (or, without bash: `git log --oneline`, `git diff --stat`,
+   and `git diff -U10` for the range, redirected to one uniquely named
+   file). The output never enters your own context, and the reviewer sees
 @@ -325,6 +315,7 @@
  - **Reviewer inputs:** the task reviewer gets three paths — the same brief
    file, the report file, and the review package — plus the global
    constraints that bind the task.
-+- **Acceptance tests (devflow):** tell the reviewer the TEST_COMMIT, and that any change to those test files after it (weakening, skipping, deleting, loosening tolerances) is a Critical finding unless the ledger holds a ruling allowing it.
++- **Acceptance tests (devflow):** the package shows changes since TEST_COMMIT; tell the reviewer any weakening, skipping, deleting or loosening is Critical unless the ledger allows it.
  - The global-constraints block you hand the reviewer is its attention
    lens. Copy the binding requirements verbatim from the plan's Global
    Constraints section or the spec: exact values, exact formats, and the
@@ -101,8 +119,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  ## Common Rationalizations
  
 diff -ruN a/implementer-prompt.md b/implementer-prompt.md
---- a/implementer-prompt.md	2026-10-17 04:16:14
-+++ b/implementer-prompt.md	2026-10-17 17:51:27
+--- a/implementer-prompt.md	2026-10-21 16:40:18
++++ b/implementer-prompt.md	2026-10-21 16:42:20
 @@ -33,11 +33,14 @@
  
      Once you're clear on requirements:
@@ -141,3 +159,93 @@ diff -ruN a/implementer-prompt.md b/implementer-prompt.md
  
      If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
      itself — the controller acts on it directly.
+diff -ruN a/scripts/review-package b/scripts/review-package
+--- a/scripts/review-package	2026-10-21 16:40:18
++++ b/scripts/review-package	2026-10-21 16:43:00
+@@ -4,30 +4,35 @@
+ # call. Using the recorded per-task BASE (not HEAD~1) keeps multi-commit
+ # tasks intact.
+ #
+-# Usage: review-package PLAN_FILE BASE HEAD [OUTFILE]
++# Usage: review-package PLAN_FILE BASE HEAD [OUTFILE] [TEST_COMMIT]
+ # Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/review-<base7>..<head7>.diff
+ # (named per range, so a re-review after fixes gets a distinct fresh file).
++# An empty OUTFILE ("") also means the default. TEST_COMMIT adds an
++# "Acceptance-test changes" section: the files that commit added or changed,
++# diffed TEST_COMMIT..HEAD ("none" when untouched).
+ set -euo pipefail
+ 
+-if [ $# -lt 3 ] || [ $# -gt 4 ]; then
+-  echo "usage: review-package PLAN_FILE BASE HEAD [OUTFILE]" >&2
++if [ $# -lt 3 ] || [ $# -gt 5 ]; then
++  echo "usage: review-package PLAN_FILE BASE HEAD [OUTFILE] [TEST_COMMIT]" >&2
+   exit 2
+ fi
+ 
+ plan=$1
+ base=$2
+ head=$3
++tc=${5:-}
+ [ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+ 
+ git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 2; }
+ git rev-parse --verify --quiet "$head" >/dev/null || { echo "bad HEAD: $head" >&2; exit 2; }
++[ -z "$tc" ] || git rev-parse --verify --quiet "${tc}^{commit}" >/dev/null || { echo "bad TEST_COMMIT: $tc" >&2; exit 2; }
+ 
+ # Range guards (exit 3): a wrong-branch HEAD yields a range that is empty or
+ # not rooted at BASE; either would silently produce a bogus review package.
+ git merge-base --is-ancestor "$base" "$head" || { echo "HEAD is not a descendant of BASE: ${base}..${head}" >&2; exit 3; }
+ [ "$(git rev-list --count "${base}..${head}")" -gt 0 ] || { echo "empty commit range: ${base}..${head}" >&2; exit 3; }
+ 
+-if [ $# -eq 4 ]; then
++if [ -n "${4:-}" ]; then
+   out=$4
+ else
+   # Invoke via bash rather than direct exec: some extractors (Python zipfile)
+@@ -45,6 +50,17 @@
+   echo "## Files changed"
+   git diff --stat "${base}..${head}"
+   echo
++  if [ -n "$tc" ]; then
++    # Acceptance-test files = what TEST_COMMIT itself added or changed.
++    files=()
++    while IFS= read -r f; do files+=("$f"); done \
++      < <(git diff-tree --root --no-commit-id --name-only -r --diff-filter=d "$tc")
++    echo "## Acceptance-test changes since $(git rev-parse --short "$tc")"
++    tdiff=""
++    [ ${#files[@]} -eq 0 ] || tdiff=$(git diff -U10 "${tc}..${head}" -- "${files[@]}")
++    if [ -n "$tdiff" ]; then printf '%s\n' "$tdiff"; else echo "none"; fi
++    echo
++  fi
+   echo "## Diff"
+   git diff -U10 "${base}..${head}"
+ } > "$out"
+diff -ruN a/scripts/task-brief b/scripts/task-brief
+--- a/scripts/task-brief	2026-10-21 16:40:18
++++ b/scripts/task-brief	2026-10-21 16:43:25
+@@ -3,6 +3,9 @@
+ # implementer reads in one call, so the task text never has to be pasted
+ # through the controller's context.
+ #
++# The plan's "## Global Constraints" and "## Review Focus" sections, when
++# present, are appended after the task text.
++#
+ # Usage: task-brief PLAN_FILE TASK_NUMBER [OUTFILE]
+ # Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/task-<N>-brief.md
+ # (per plan and per worktree; concurrent runs of the SAME plan in the same
+@@ -39,5 +42,15 @@
+   echo "task ${n} not found in ${plan} (no heading matching 'Task ${n}')" >&2
+   exit 3
+ fi
++
++# Append the plan-wide sections that bind every task.
++extra=$(awk '
++  /^```/ { infence = !infence }
++  !infence && /^##?[ \t]/ { on = ($0 ~ /^##[ \t]+(Global Constraints|Review Focus)[ \t]*$/) }
++  # Plans run straight from these sections into "---" and "### Task N".
++  !infence && (/^---[ \t]*$/ || /^#+[ \t]+Task[ \t]+[0-9]+/) { on = 0 }
++  on { print }
++' "$plan")
++[ -z "$extra" ] || printf '\n%s\n' "$extra" >> "$out"
+ 
+ echo "wrote ${out}: $(wc -l < "$out" | tr -d ' ') lines"
