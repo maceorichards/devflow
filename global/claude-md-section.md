@@ -9,6 +9,7 @@
 
 Rules:
 - **Never start a slash-only skill yourself:** `dev-single`, `dev-multi`, `grill-me`, `prototype`, `setup-devflow-skills`, `systematic-debugging`. `--auto` is the user's permission for that one run's pauses, nothing more: it never lets you start one of these.
+- **Smoke driver exception:** when the user asks for an unattended smoke run, you may send these commands, and the answers to their pauses, as the user message of a child `claude -p` session in the throwaway smoke repo. Never in any other repo, and never in your own session.
 - **Devflow building blocks run only when a workflow or another skill calls for them, or when the user asks:** align, grill-with-docs, grilling, domain-modeling, to-spec, to-tickets, implement, implement-spec, run-lanes, writing-plans, subagent-driven-development, requesting-code-review, using-git-worktrees, finishing-a-development-branch, spec-review, codebase-design, tdd.
 - **Agent docs** live in the main checkout's git-ignored `.claude/docs/`:
   - specs: `specs/iss-N-<slug>.md`
