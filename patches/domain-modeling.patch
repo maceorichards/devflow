@@ -1,12 +1,32 @@
+diff -ruN a/ADR-FORMAT.md b/ADR-FORMAT.md
+--- a/ADR-FORMAT.md	2026-10-21 14:32:12
++++ b/ADR-FORMAT.md	2026-10-21 16:51:15
+@@ -1,6 +1,6 @@
+ # ADR Format
+ 
+-ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
++ADRs live in `docs/adr/` and are named by issue: `iss-N-<slug>.md` (see Numbering).
+ 
+ Create the `docs/adr/` directory lazily: only when the first ADR is needed.
+ 
+@@ -24,7 +24,7 @@
+ 
+ ## Numbering
+ 
+-Scan `docs/adr/` for the highest existing number and increment by one.
++Name the file `iss-N-<slug>.md`, where N is the feature's issue, so parallel branches never collide. Existing numbered ADRs (`0001-slug.md`) stay as they are.
+ 
+ ## When to offer an ADR
+ 
 diff -ruN a/GLOSSARY-FORMAT.md b/GLOSSARY-FORMAT.md
---- a/GLOSSARY-FORMAT.md	2026-10-17 04:16:14
-+++ b/GLOSSARY-FORMAT.md	2026-10-17 17:50:56
+--- a/GLOSSARY-FORMAT.md	2026-10-21 14:32:12
++++ b/GLOSSARY-FORMAT.md	2026-10-21 16:51:15
 @@ -31,7 +31,7 @@
  
  ## Single vs multi-context repos
  
 -**Single context (most repos):** One `GLOSSARY.md` at the repo root.
-+**Single context (most repos):** One `docs/GLOSSARY.md` (devflow layout).
++**Single context (most repos):** One `docs/GLOSSARY.md` (devflow layout). Its top heading is the repo name, never a feature-specific context name.
  
  **Multiple contexts:** A `GLOSSARY-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
  
@@ -21,9 +41,9 @@ diff -ruN a/GLOSSARY-FORMAT.md b/GLOSSARY-FORMAT.md
  
  When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 17:50:50
-@@ -13,8 +13,8 @@
+--- a/SKILL.md	2026-10-21 14:32:12
++++ b/SKILL.md	2026-10-21 16:52:24
+@@ -13,11 +13,11 @@
  
  ```
  /
@@ -31,8 +51,13 @@ diff -ruN a/SKILL.md b/SKILL.md
  ├── docs/
 +│   ├── GLOSSARY.md
  │   └── adr/
- │       ├── 0001-event-sourced-orders.md
- │       └── 0002-postgres-for-write-model.md
+-│       ├── 0001-event-sourced-orders.md
+-│       └── 0002-postgres-for-write-model.md
++│       ├── iss-12-event-sourced-orders.md
++│       └── iss-15-postgres-for-write-model.md
+ └── src/
+ ```
+ 
 @@ -37,7 +37,7 @@
  │       └── docs/adr/
  ```

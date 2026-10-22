@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 04:24:17
+--- a/SKILL.md	2026-10-19 13:08:29
++++ b/SKILL.md	2026-10-19 15:15:10
 @@ -13,9 +13,12 @@
  
  **Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
@@ -64,5 +64,5 @@ diff -ruN a/SKILL.md b/SKILL.md
 -
 -**If Native chosen:**
 -- **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
-+Wait for their review before implementation. Then, unless a calling devflow workflow takes over execution itself:
++Wait for their review before implementation. (**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: treat the plan as approved and log its path; don't wait.) Then, unless a calling devflow workflow takes over execution itself:
 +- **REQUIRED SUB-SKILL:** Use subagent-driven-development

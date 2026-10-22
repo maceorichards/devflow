@@ -9,7 +9,7 @@ You receive:
 - `#N` and the absolute spec path,
 - the integration branch `feat/iss-N-<slug>` and its worktree (`INT_WT`),
 - the run-state file,
-- optionally `--auto-approve-plans`.
+- whether auto mode is on (`auto` in the state file; see `align`'s AUTO.md). In auto mode, tell every skill you call: "This is a devflow auto run; follow `align`'s AUTO.md at any pause."
 
 Every ticket is a sub-issue of #N, labeled `lane:fast` or `lane:rigor`.
 
@@ -55,13 +55,13 @@ When every ticket is `lane:fast`, this one step builds everything.
 For each **ready `lane:rigor`** ticket `T`, highest unblock count first (tickets that unblock others go first):
 
 1. **Plan:** call the Skill tool with `writing-plans`. Pass the absolute spec path and ticket `#T`, and save to `$MAIN/.claude/docs/plans/<YYYY-MM-DD>-iss-N-t<T>-<slug>.md`. Plan against the **current** integration branch, since earlier tickets may have changed the code.
-2. **Approval:** unless `--auto-approve-plans` was given (or the state file has `auto_approve_plans: true`), show the user the plan path and **end your turn and wait**. Apply any requested changes first. If the user says to stop pausing for plans, set `auto_approve_plans: true` in the state file.
+2. **Approval:** unless the state file has `auto: true`, show the user the plan path and **end your turn and wait**. Apply any requested changes first. If the user says to go auto from here, set the `auto` fields as in `align`'s AUTO.md. In auto mode, approve the plan and log its path in the decision log.
 3. **Worktree:** cut it only after the fast batch has returned, so it starts from a tip that includes every merged fast ticket.
    ```bash
    git -C "$MAIN" worktree add "$MAIN/.worktrees/feat-iss-N-t<T>" -b "feat/iss-N-<slug>--t<T>" "feat/iss-N-<slug>"
    ```
 4. **Execute:** call the Skill tool with `subagent-driven-development`. Pass the plan path and the working directory (that worktree). It runs a tester before each task, then the implementer and the task review, then its whole-branch review. It returns to you at its Finish step. Keep its "Rulings I made" list for the final report.
-5. **Merge:** call the Skill tool with `finishing-a-development-branch`, preselecting **option 1 (merge locally)** with base `feat/iss-N-<slug>`. The integration branch is checked out in `INT_WT`, so the merge runs there. Run the suite on the merged result.
+5. **Merge:** call the Skill tool with `finishing-a-development-branch`, preselecting **option 1 (merge locally)** with base `feat/iss-N-<slug>`. The integration branch is checked out in `INT_WT`, so the merge runs there. Run the suite on the merged result. In auto mode, finishing skips its confirmation.
 6. **Close:** `gh issue close <T> --comment "Merged into feat/iss-N-<slug> at <sha>."` Then remove the ticket worktree (finishing does this for `.worktrees/` paths) and delete the merged ticket branch from the integration worktree, so `-d` checks it against the integration branch rather than `main`: `git -C "$INT_WT" branch -d feat/iss-N-<slug>--t<T>`.
 
 ### 3. Refresh

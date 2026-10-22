@@ -1,21 +1,23 @@
 # devflow skills: current overview
 
-What is installed, what each skill does, and the names it uses. This file describes the current state, including the smoke-test fixes of 2026-10-17. `../SKILLS-DESIGN.md` is the original design and its rationale; where the two disagree, this file and the skills themselves win.
+What is installed, what each skill does, and the names it uses. [DESIGN.md](DESIGN.md) records why; this file records what. Where they disagree, this file and the skills win.
 
 ## Quick start
 
-1. **Once per repo:** `/setup-devflow-skills`. Choose GitHub and single-context domain docs. It writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md`, then commits `docs/agents/*.md` and offers to push them. Push them before the first workflow run, because feature worktrees are cut from `origin/<default>`.
+1. **Once per repo:** `/setup-devflow-skills`. Choose GitHub and single-context domain docs. It writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md` and the tracker and domain-doc conventions to the git-ignored `.claude/docs/agents/`. Nothing is committed.
 2. **Open the Claude Code session in the main checkout,** not in a worktree. devflow creates and drives its own worktrees from there.
 3. **Run a workflow:**
 
 | Command | Use for |
 |---|---|
-| `/dev-single <description> [--rigor]` | One-ticket feature. `--rigor` adds an approved plan and subagent-driven execution. |
-| `/dev-multi <description> [--fast \| --rigor \| --auto-approve-plans]` | Multi-ticket feature with a lane per ticket. No lane flag means MIXED (lanes proposed per ticket). |
+| `/dev-single <description> [--fast \| --rigor] [--auto]` | One-ticket feature. `--rigor` adds an approved plan and subagent-driven execution; `--fast` is the default. |
+| `/dev-multi <description> [--fast \| --rigor] [--auto]` | Multi-ticket feature with a lane per ticket. No lane flag means MIXED (lanes proposed per ticket). |
 | `/dev-single #N`, `/dev-multi #N` (+ flags) | Resume issue N, change its mode, or upgrade single → multi. |
 | just ask, or `/tdd` / `/tdd --solo` | Small changes, with no workflow. |
 
 Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, and nothing runs. Each command states its mode before it does anything.
+
+**`--auto`** is your permission for one run to make the calls it would otherwise stop for: a stand-in agent answers the grilling and reviews the spec, tickets, lanes and plans are approved, and the PR opens without a confirmation (as a draft if anything is blocked). Turn it on at the start, with `#N --auto` on a resume, or by saying so in chat at a pause. A resume without it turns it off. Hard stops (preflight, dirty tree, failing baseline, rejected push) still stop; merging, force-pushing and starting slash commands never happen. Every call is logged in `runs/iss-N-decisions.md` and summarized in the PR's `## Auto decisions`. The rules are in `align/AUTO.md`.
 
 ## Skill inventory (28)
 
@@ -35,10 +37,10 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 
 | Skill | Tier | What it does | devflow changes |
 |---|---|---|---|
-| `setup-devflow-skills` | slash | Per-repo setup: issue tracker, labels, domain-doc layout | **Renamed** from `setup-matt-pocock-skills`; block goes to `CLAUDE.local.md`; commits `docs/agents/` only; GitHub template trimmed to sub-issues and blocking |
+| `setup-devflow-skills` | slash | Per-repo setup: issue tracker, labels, base branch, domain-doc layout | **Renamed** from `setup-matt-pocock-skills`; block goes to `CLAUDE.local.md`; conventions go to `.claude/docs/agents/` (manifest `rewrite`); commits nothing; GitHub template trimmed to sub-issues and blocking; records a `Base branch:` line |
 | `grill-with-docs` | sub | Calls `grilling` + `domain-modeling` | description only |
 | `grilling` | sub | Interviews you in rounds of numbered questions with recommended answers | description only |
-| `domain-modeling` | sub | Challenges terms and writes `docs/GLOSSARY.md` and ADRs | patched: `docs/GLOSSARY.md` path |
+| `domain-modeling` | sub | Challenges terms and writes `docs/GLOSSARY.md` and ADRs | patched: `docs/GLOSSARY.md` path; glossary heading is the repo name; ADRs named by issue |
 | `to-spec` | sub | Spec → GitHub issue #N + local spec file | patched: devflow storage |
 | `to-tickets` | sub | Spec → sub-issue tickets with native blocking, interfaces-first ticket, footprints, lanes, overlap check | patched |
 | `implement` | sub | Builds one spec inline with `tdd`, then `spec-review` | patched |
@@ -70,20 +72,20 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 
 **Ticket lanes (`/dev-multi`).**
 - `fast`: built in parallel. For each ticket, a tester commits acceptance tests, then an implementer (with `tdd`) builds it, then a merger merges into the integration worktree, runs the suite and closes the ticket.
-- `rigor`: built one at a time. `writing-plans` against the current integration tip → your approval (unless plans are auto-approved) → SDD in a ticket worktree → `finishing-a-development-branch` merges it locally → the ticket closes.
+- `rigor`: built one at a time. `writing-plans` against the current integration tip → your approval (skipped in auto mode) → SDD in a ticket worktree → `finishing-a-development-branch` merges it locally → the ticket closes.
 - The two lanes take turns. A rigor ticket's worktree is cut only after the fast batch has returned. A ticket becomes `needs-human` when SDD's fix loop can't resolve a finding, when an implementer is blocked twice, or when a merge fails its tests.
-- **Interfaces-first ticket:** its stubs are the deliverable. Its tests pin only names, signatures and shared types, so they stay true after later tickets land.
+- **Interfaces-first ticket:** its stubs are the deliverable. Its tests pin only public import paths, names, signatures and shared types, so they stay true after later tickets land.
 
 **Reviews, in order.**
 1. Every task or ticket: an independent tester writes the acceptance tests first, and implementers may never change them.
 2. Rigor work: SDD runs a task review (spec compliance + quality) on every task.
-3. Every feature: `spec-review` + the built-in `code-review` over the whole branch, then one fix subagent for Critical/Important findings. Minor findings go under Follow-ups in the PR.
+3. Every feature: `spec-review` + the built-in `code-review` over the whole branch, then one fix subagent for Critical/Important findings. Those that target acceptance tests aren't fixed: they go under Follow-ups as rulings for you. Minor findings go under Follow-ups in the PR.
 4. `verification-before-completion`, compared with the baseline.
 5. Push + PR, after one confirmation.
 
 SDD's own whole-branch review is skipped for devflow callers, because step 3 covers it.
 
-**Resume.** `/dev-single #N` or `/dev-multi #N` reads `runs/iss-N.json` and continues from the recorded stage. It rebuilds the file from the issue, spec, branch and worktrees if the file is missing. It first reports parent #N, the stage, the mode and the ticket table. A changed lane flag updates `mode` and re-labels only the tickets that are still open. A resume without `--auto-approve-plans` resets `auto_approve_plans` to `false`.
+**Resume.** `/dev-single #N` or `/dev-multi #N` reads `runs/iss-N.json` and continues from the recorded stage. It rebuilds the file from the issue, spec, branch and worktrees if the file is missing. It first reports parent #N, the stage, the mode and the ticket table. A changed lane flag updates `mode` and re-labels only the tickets that are still open. A resume without `--auto` turns auto mode off and says so; `--auto` on a resume turns it on from that stage.
 
 ## Naming conventions
 
@@ -98,6 +100,7 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 | Plan | `<main>/.claude/docs/plans/YYYY-MM-DD-iss-N[-t<T>]-<slug>.md` |
 | Run state | `<main>/.claude/docs/runs/iss-N.json` (`pending-<slug>.json` before #N exists). Stages: `worktree → specced → aligned → ticketed → building → built → reviewed → finished` |
 | SDD ledger | `<ticket or feature worktree>/.superpowers/sdd/<plan>/progress.md` |
+| ADR | `docs/adr/iss-N-<slug>.md` (older `0001-<slug>.md` files keep their names) |
 | Domain-docs commit | `docs(iss-N): glossary`, `… ADRs` or `… glossary and ADRs` (only what changed) |
 | Acceptance-test commit | `test(iss-N): …`, `test(iss-N-t<T>): …` or `test(<scope> task K): acceptance tests` |
 | Implementation commit | `feat(iss-N[-t<T>]): <what>` |
@@ -109,9 +112,8 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 | Location | Contents | Tracked? |
 |---|---|---|
 | `<repo>/CLAUDE.local.md` | `## Agent skills` block (tracker, domain docs) | no (global ignore) |
-| `<repo>/docs/agents/*.md` | tracker and domain-doc conventions from setup | yes |
 | `<repo>/docs/GLOSSARY.md`, `docs/adr/` | domain language and ADRs, committed on the feature branch | yes |
-| `<repo>/.claude/docs/` | specs, plans, run state (main checkout only) | no (global ignore) |
+| `<repo>/.claude/docs/` | specs, plans, run state (and auto-mode decision logs), setup's tracker and domain-doc conventions in `agents/` (main checkout only) | no (global ignore) |
 | `<repo>/.worktrees/` | feature and ticket worktrees | no (global ignore) |
 | `~/.claude/skills/` | installed skills, generated by `./sync.sh` (never edit there) | n/a |
 | `~/.claude/CLAUDE.md` | devflow section between `devflow` markers, from `global/claude-md-section.md` | n/a |
@@ -119,6 +121,4 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 
 ## Known gaps
 
-- **D21:** a resume started outside the repo searches the disk before asking which repo #N is in. Listed in `README.md` under "Known issues"; not fixed yet.
 - The two ticket-worktree naming schemes above (fast vs rigor) differ. This is cosmetic.
-- The 2026-10-17 fixes haven't had a re-smoke yet (see `../SMOKE-TEST-NOTES.md`, "Applied fixes").

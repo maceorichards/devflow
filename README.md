@@ -1,20 +1,22 @@
 # devflow
 
-My Claude Code skills and workflows. **[SKILLS.md](SKILLS.md) is the current overview** of every skill, the workflow mechanics and the naming conventions. Handpicked skills from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills), plus my patches and my own skills, built into `~/.claude/skills/` so every project sees them. The full design is in `../SKILLS-DESIGN.md`.
+My Claude Code skills and workflows. **[SKILLS.md](SKILLS.md) is the current overview** of every skill, the workflow mechanics and the naming conventions. Handpicked skills from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills), plus my patches and my own skills, built into `~/.claude/skills/` so every project sees them. [DESIGN.md](DESIGN.md) records why it's built this way.
 
 ## Workflows
 
 | Command | Use for |
 |---|---|
-| `/dev-single <description> [--rigor]` | One-ticket feature, built in its own worktree and ending in a PR. `--rigor` adds a reviewed plan and subagent-driven execution. |
-| `/dev-multi <description> [--fast \| --rigor]` | Multi-ticket feature. Each ticket gets a fast lane (parallel) or rigor lane (plan + reviewed subagents), with one approval for tickets and lanes together. |
-| `/dev-single #N`, `/dev-multi #N` | Resume a run (or upgrade single → multi) for GitHub issue N. |
+| `/dev-single <description> [--fast \| --rigor] [--auto]` | One-ticket feature, built in its own worktree and ending in a PR. `--rigor` adds a reviewed plan and subagent-driven execution; `--fast` is the default. |
+| `/dev-multi <description> [--fast \| --rigor] [--auto]` | Multi-ticket feature. Each ticket gets a fast lane (parallel) or rigor lane (plan + reviewed subagents), with one approval for tickets and lanes together. |
+| `/dev-single #N`, `/dev-multi #N` (+ flags) | Resume a run (or upgrade single → multi) for GitHub issue N. |
 | *(optional W0)* just ask, or `/tdd` / `/tdd --solo` | Small changes. Only the auto-tier skills run. |
 
-**Once per repo:** run `/setup-devflow-skills`, choosing GitHub and single-context domain docs (`docs/GLOSSARY.md`, `docs/adr/`). It writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md` and commits only `docs/agents/*.md` (push them before the first workflow run). `setup-devflow-skills` is Matt Pocock's `setup-matt-pocock-skills`, renamed and patched; the manifest's `rewrite` map renames every upstream mention at build time.
+**`--auto`** (either command, at the start or on a resume `#N --auto`, or "go auto from here" in chat at a pause): the run makes its own calls instead of stopping for you. A stand-in agent answers the grilling and reviews the spec; tickets, lanes and plans are approved; the PR opens without a confirmation, as a draft if anything is blocked. Every call is logged in `runs/iss-N-decisions.md` and summarized under `## Auto decisions` in the PR. It never merges, force-pushes or starts a slash command, and a resume without `--auto` turns it off. Details: `owned/align/AUTO.md`.
+
+**Once per repo:** run `/setup-devflow-skills`, choosing GitHub and single-context domain docs (`docs/GLOSSARY.md`, `docs/adr/`). It writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md` and the tracker and domain-doc conventions to the git-ignored `.claude/docs/agents/`. It commits nothing. `setup-devflow-skills` is Matt Pocock's `setup-matt-pocock-skills`, renamed and patched; the manifest's `rewrite` map renames every upstream mention, and moves `docs/agents/` to `.claude/docs/agents/`, at build time.
 
 **Where things live in a project:**
-- `.claude/docs/` (git-ignored, main checkout): specs `specs/iss-N-<slug>.md`, plans `plans/`, run state `runs/iss-N.json`.
+- `.claude/docs/` (git-ignored, main checkout): specs `specs/iss-N-<slug>.md`, plans `plans/`, run state `runs/iss-N.json`, setup's conventions `agents/`.
 - `docs/GLOSSARY.md` and `docs/adr/`: tracked.
 - `.worktrees/`: git-ignored feature and ticket worktrees. The orchestrating session never enters them; it stays in the main checkout.
 - `CLAUDE.local.md`: git-ignored, holds the `## Agent skills` block.
@@ -33,6 +35,8 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 
 | Path | What |
 |---|---|
+| `SKILLS.md` | What is installed and how the workflows run |
+| `DESIGN.md` | Why: the design decisions and what was rejected |
 | `manifest.json` | Every managed skill: source, upstream path, tier, description override, patch |
 | `vendor.lock` | The upstream commits the patches were last applied against (written by `sync.sh`) |
 | `patches/` | Diffs against upstream skills |
@@ -58,9 +62,3 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 **Adding a skill:** add an entry to `manifest.json`, then run `./sync.sh`. **Removing one:** delete its entry; `./sync.sh` removes the installed copy.
 
 **Never edit `~/.claude/skills/<name>/` directly.** It's generated, and the next sync overwrites it.
-
-## Known issues (not yet fixed)
-
-From the 2026-10-17 smoke test (`../SMOKE-TEST-NOTES.md`):
-
-- **D21: resuming outside the repo searches the disk.** `/dev-multi #N` (or `/dev-single #N`) in a session with no project folder fails preflight correctly, then searches the home folder for `.claude/docs/runs/iss-N.json` before asking which repo #N is in. Proposed fix (not applied): in `owned/align` §0.1, "if not inside a git repository, ask for the repo path (or tell the user to open the session in it) and stop; don't search the filesystem."
