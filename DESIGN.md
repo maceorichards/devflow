@@ -18,7 +18,7 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 
 ## 3. Customizations are patches over pinned upstream clones
 
-- **Decision:** upstream repos are git-ignored clones in `vendor/`, pinned in `vendor.lock`. Changes to upstream skills are patches, and `~/.claude/skills/` is generated output. If a patch stops applying after `--update`, that vendor's lock isn't advanced and the installed skills stay as they were.
+- **Decision:** upstream repos are git-ignored clones in `vendor/`, pinned in `vendor.lock`. Changes to upstream skills are patches, and the selected providers' skills folders are generated output. If a patch stops applying after `--update`, that vendor's lock isn't advanced and the installed skills stay as they were.
 - **Why:** updating is one command, and a customization is never silently dropped. The repo holds only your decisions and your own skills, so its history is a log of your choices.
 - **Rejected:** copying upstream skills into the repo and editing them in place, which turns every upstream update into a manual merge.
 
