@@ -18,7 +18,7 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 
 ## 3. Customizations are patches over pinned upstream clones
 
-- **Decision:** upstream repos are git-ignored clones in `vendor/`, pinned in `vendor.lock`. Changes to upstream skills are patches, and `~/.claude/skills/` is generated output. If a patch stops applying after `--update`, that vendor's lock isn't advanced and the installed skills stay as they were.
+- **Decision:** upstream repos are git-ignored clones in `vendor/`, pinned in `vendor.lock`. Changes to upstream skills are patches, and the selected providers' skills folders are generated output. If a patch stops applying after `--update`, that vendor's lock isn't advanced and the installed skills stay as they were.
 - **Why:** updating is one command, and a customization is never silently dropped. The repo holds only your decisions and your own skills, so its history is a log of your choices.
 - **Rejected:** copying upstream skills into the repo and editing them in place, which turns every upstream update into a manual merge.
 
@@ -31,7 +31,7 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 
 ## 5. Agent working docs stay untracked, in the main checkout
 
-- **Decision:** specs, plans and run state live in `<main checkout>/.claude/docs/`, git-ignored. The glossary and ADRs in `docs/` are tracked. Subagents get absolute paths, never pasted content.
+- **Decision:** specs, plans and run state live in `<main checkout>/.devflow/`, git-ignored (moved from `.claude/docs/` by 15). The glossary and ADRs in `docs/` are tracked. Subagents get absolute paths, never pasted content.
 - **Why:** these are working material for agents, not project history. Keeping them in one place that outlives worktrees makes resuming (`#N`) a file lookup. The local spec is what agents read and you edit; the GitHub issue is the lasting, shareable record and the fallback (`gh issue view N`).
 - **Rejected:** keeping them inside the feature worktree, where they're deleted at finish and the resume lookup breaks.
 
@@ -44,20 +44,20 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 ## 7. The orchestrator never enters a worktree
 
 - **Decision:** feature and ticket worktrees are plain `git worktree add <main>/.worktrees/…`. The orchestrating session stays in the main checkout and works in worktrees by absolute path (`git -C`, a subshell `(cd <wt> && …)`). `align` stops if it's started from a linked worktree.
-- **Why:** a session inside a native worktree is isolated. Claude Code refuses its writes to the main checkout's `.claude/docs/`, and that check can't be turned off. The native tool also branches from `origin/<default>` under its own branch name, and `ExitWorktree` leaves a renamed branch behind.
+- **Why:** a session inside a native worktree is isolated. Claude Code refuses its writes to the main checkout's `.devflow/` (earlier `.claude/docs/`; see 15), and that check can't be turned off. The native tool also branches from `origin/<default>` under its own branch name, and `ExitWorktree` leaves a renamed branch behind.
 - **Rejected:** Claude Code's native `EnterWorktree` (the original design), and moving agent docs into the worktree (see 5).
 
 ## 8. Per-repo setup commits nothing
 
-- **Decision:** `/setup-devflow-skills` writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md`, and the tracker and domain-doc conventions to `.claude/docs/agents/` (upstream's `docs/agents/`, moved by the manifest's `rewrite` map). Nothing is committed or pushed.
-- **Why:** only the orchestrator reads these files, and it always runs in the main checkout (see 7), so worktrees and `origin` don't need them. `.claude/docs/` is already ignored globally, so no new ignore rule is needed, and repos that track their own `docs/agents/` are unaffected.
+- **Decision:** `/setup-devflow-skills` writes the tracker and domain-doc conventions to `.devflow/agents/` (upstream's `docs/agents/`, moved by the manifest's `rewrite` map). Nothing is committed or pushed. (Amended by 15: it used to also write a `## Agent skills` block to the git-ignored `CLAUDE.local.md`; that block is dropped, and the global section points at `.devflow/agents/`.)
+- **Why:** only the orchestrator reads these files, and it always runs in the main checkout (see 7), so worktrees and `origin` don't need them. `.devflow/` is ignored globally, so no per-repo ignore rule is needed, and repos that track their own `docs/agents/` are unaffected.
 - **Cost accepted:** a fresh clone, another machine or a cloud session needs setup re-run.
 - **Rejected:** committing the block to `CLAUDE.md` and the conventions to `docs/agents/` (the upstream behavior), and a global `docs/agents/` ignore rule.
 
 ## 9. SDD skips its own final review for devflow callers
 
 - **Decision:** when `/dev-single --rigor` or `run-lanes` calls SDD, it skips its whole-branch Final Review and returns its deferred minor findings along with its Rulings.
-- **Why:** the caller's final review (`spec-review` + `code-review` over the whole feature, with one fix pass) covers the same ground. In the smoke test, three reviews of one branch reached the same verdict. Per-task reviews still gate every task.
+- **Why:** the caller's final review (`spec-review` over the whole feature, with one fix pass; see 15) covers the same ground. In the smoke test, three reviews of one branch reached the same verdict. Per-task reviews still gate every task.
 - **Rejected:** keeping SDD's final review and dropping `spec-review` in rigor mode.
 
 ## 10. Footprints stay per module; splits for parallelism are raised
@@ -89,3 +89,15 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 - **Decision:** every fix stays within a context budget. It edits an existing sentence, moves logic into a script, or moves text into a file loaded on demand (like `align`'s AUTO.md). Each changed skill file grows by about +30 words at most, measured with `wc -w` on the built skill.
 - **Why:** every word in a SKILL.md is context the model carries through a run. Long skills are slower to follow and easier to misread, which caused several of the defects these fixes address.
 - **Rejected:** a paragraph per fix.
+
+## 15. Any provider
+
+- **Decision:** devflow installs to any of four providers (Claude Code, Codex, Gemini CLI, Cursor), listed in a `providers` table in `manifest.json` (skills folder, instructions file, extra folders the tool also reads). `./sync.sh providers <list> [--dry-run]` chooses them; the choice is local, in the git-ignored `devflow.local.json`, defaulting to `claude`. Related changes:
+  - **Folders:** Codex, Gemini and Cursor share `~/.agents/skills`; Claude uses `~/.claude/skills`. Deselecting a provider removes its devflow skills and instructions section, skipping symlinked folders, folders that are the same directory as an install folder, and instructions files with malformed markers. Cursor keeps global rules only in its settings UI, so the sync prints a reminder to paste the section there.
+  - **`.devflow/`:** agent docs and setup's conventions move from `.claude/docs/` to `.devflow/` (amends 5, 7 and 8), because the old path names one provider.
+  - **Dropped block:** `/setup-devflow-skills` no longer writes the `## Agent skills` block to `CLAUDE.local.md`; the global section says where conventions live.
+  - **One review path:** the built-in `/code-review` exists only in Claude Code, so its job moves into `spec-review` as a third Correctness axis; the final review is `spec-review` plus one fix pass (amends 9).
+  - **Codex policy:** `agents/openai.yaml` with `allow_implicit_invocation: false` is generated for slash-tier skills, so tier holds on Codex as `disable-model-invocation` does elsewhere.
+- **Why:** skill folders are read by several tools (as of 2026-10: Codex, Gemini CLI and Copilot CLI read `~/.agents/skills`; Cursor reads `~/.agents`, `~/.cursor`, `~/.claude` and `~/.codex` skills and honors `disable-model-invocation`; Claude Code reads only `~/.claude/skills`), so one build can serve all of them. A local choice keeps the repo free of per-machine state.
+- **Cost accepted:** Cursor with Claude or Codex also selected reads both folders, so duplicates can appear. Codex needs `multi_agent = true` for subagents.
+- **Rejected:** a per-tool mapping file for each tool (obra/superpowers), plugin packaging, and rewording skill bodies per tool. devflow follows mattpocock/skills' lighter approach, keeping "Call the Skill tool" prose and adding one translation sentence to the global section.

@@ -8,15 +8,17 @@
 - Small changes: just ask, optionally with `/tdd` (or `/tdd --solo`).
 
 Rules:
+- **Tool wording:** "Call the Skill tool with X": follow X. "Dispatch a subagent": use your subagents. `/name`: the user invokes `name`. Cannot dispatch subagents? Stop and say so; never fake a dispatch.
 - **Never start a slash-only skill yourself:** `dev-single`, `dev-multi`, `grill-me`, `prototype`, `setup-devflow-skills`, `systematic-debugging`. `--auto` is the user's permission for that one run's pauses, nothing more: it never lets you start one of these.
 - **Smoke driver exception:** when the user asks for an unattended smoke run, you may send these commands, and the answers to their pauses, as the user message of a child `claude -p` session in the throwaway smoke repo. Never in any other repo, and never in your own session.
 - **Devflow building blocks run only when a workflow or another skill calls for them, or when the user asks:** align, grill-with-docs, grilling, domain-modeling, to-spec, to-tickets, implement, implement-spec, run-lanes, writing-plans, subagent-driven-development, requesting-code-review, using-git-worktrees, finishing-a-development-branch, spec-review, codebase-design, tdd.
-- **Agent docs** live in the main checkout's git-ignored `.claude/docs/`:
+- **Agent docs** live in the main checkout's git-ignored `.devflow/`:
   - specs: `specs/iss-N-<slug>.md`
   - plans: `plans/`
   - run state: `runs/iss-N.json`
 
   Give subagents absolute paths, never pasted content.
+- **Repo conventions** (tracker, domain docs): `<repo>/.devflow/agents/`.
 - **Domain docs:** the glossary is `docs/GLOSSARY.md` and ADRs are in `docs/adr/`. Any skill that mentions `GLOSSARY.md` means `docs/GLOSSARY.md`.
 - **Test reporting:** name every failure, and separate new failures from pre-existing ones.
 <!-- devflow:end -->

@@ -13,7 +13,7 @@ When you call a skill during an auto run, tell it: "This is a devflow auto run; 
 
 ## Decision log
 
-Every call you make in place of the user goes in `$MAIN/.claude/docs/runs/iss-N-decisions.md` (`pending-<slug>-decisions.md` until #N exists; rename it together with the state file). One line each:
+Every call you make in place of the user goes in `$MAIN/.devflow/runs/iss-N-decisions.md` (`pending-<slug>-decisions.md` until #N exists; rename it together with the state file). One line each:
 
 ```
 - [<step>] <question> | recommended: <answer> | chosen: <answer> | by: stand-in | orchestrator | <one-line reason if it differs from recommended>
@@ -37,7 +37,7 @@ Questions meant for the user about *what to build* go to a stand-in. Use this fo
 
 | Pause | In auto mode (log each one) |
 |---|---|
-| `.claude/docs/` not ignored (align preflight) | Add `.claude/docs/` to `$MAIN/.git/info/exclude` |
+| `.devflow/` not ignored (align preflight) | Add `.devflow/` to `$MAIN/.git/info/exclude` |
 | Escalation hint (`/dev-single`) | Don't switch. Note it in the PR's `## Auto decisions` |
 | Ticket breakdown and lanes (`to-tickets`) | Approve, using the lane each ticket's heuristics recommend |
 | Overlapping fast tickets (`to-tickets`) | Merge them or add a blocking edge; never leave one flagged |

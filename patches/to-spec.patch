@@ -1,11 +1,11 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 16:40:10
-+++ b/SKILL.md	2026-10-21 16:44:07
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:28:55
 @@ -8,15 +8,25 @@
  
  The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
  
-+**Devflow storage.** Every spec lives in two places: a GitHub issue (#N) and a local, git-ignored file at `<main checkout>/.claude/docs/specs/iss-<N>-<slug>.md`, where `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`. The local file is authoritative for agents; the issue is the durable, shareable record. Use the slug the caller gives you, or derive a short kebab-case one.
++**Devflow storage.** Every spec lives in two places: a GitHub issue (#N) and a local, git-ignored file at `<main checkout>/.devflow/specs/iss-<N>-<slug>.md`, where `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`. The local file is authoritative for agents; the issue is the durable, shareable record. Use the slug the caller gives you, or derive a short kebab-case one.
 +
  ## Process
  
@@ -20,9 +20,9 @@ diff -ruN a/SKILL.md b/SKILL.md
 +3. Write the spec using the template below, then publish it:
 +
 +   a. **Create the issue:** `gh issue create --title "<title>" --body-file <tmpfile> --label ready-for-agent` (if the label doesn't exist yet, create it first: `gh label create ready-for-agent`). Note its number **N**.
-+   b. **Write the local file** `<main checkout>/.claude/docs/specs/iss-N-<slug>.md`: this header line, then the same body:
++   b. **Write the local file** `<main checkout>/.devflow/specs/iss-N-<slug>.md`: this header line, then the same body:
 +      `<!-- spec for #N · <issue URL> · created <YYYY-MM-DD> -->`
-+   c. **Check it's ignored:** `git -C <main checkout> check-ignore -q .claude/docs/specs/iss-N-<slug>.md`. If not, warn the user that `.claude/docs/` should be git-ignored (devflow adds it to the global git ignore).
++   c. **Check it's ignored:** `git -C <main checkout> check-ignore -q .devflow/specs/iss-N-<slug>.md`. If not, warn the user that `.devflow/` should be git-ignored (devflow adds it to the global git ignore).
 +   d. Report N, the issue URL and the absolute file path.
 +
 +   **Update mode:** when called with an existing `#N`, or when a spec file already exists for this feature, revise the local file, then push the same body (without the header line) to the issue: `gh issue edit N --body-file <tmpfile>`. If the user edited one copy by hand, ask which one wins before overwriting.

@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 16:40:13
-+++ b/SKILL.md	2026-10-21 16:44:07
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:28:54
 @@ -38,7 +38,7 @@
  
  **If `GIT_DIR == GIT_COMMON` (or in a submodule):** You are in a normal repo checkout.
@@ -14,7 +14,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  **You have two mechanisms. Try them in this order.**
  
-+**devflow callers (`align`, `run-lanes`, `implement-spec`): skip 1a and always use 1b**, at the path and base the caller gives (`$MAIN/.worktrees/...`). Don't move this session into the worktree: no `cd` that persists, no native worktree tool. A native worktree session is isolated and can't write the main checkout's `.claude/docs/`, and no setting lifts that check. Run every later command against the worktree by absolute path (`git -C "$path"`, `uv run --directory "$path"`, or a subshell `(cd "$path" && …)`).
++**devflow callers (`align`, `run-lanes`, `implement-spec`): skip 1a and always use 1b**, at the path and base the caller gives (`$MAIN/.worktrees/...`). Don't move this session into the worktree: no `cd` that persists, no native worktree tool. A native worktree session is isolated and can't write the main checkout's `.devflow/`, and no setting lifts that check. Run every later command against the worktree by absolute path (`git -C "$path"`, `uv run --directory "$path"`, or a subshell `(cd "$path" && …)`).
 +
  ### 1a. Native Worktree Tools (preferred)
  

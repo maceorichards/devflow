@@ -4,8 +4,8 @@ What is installed, what each skill does, and the names it uses. [DESIGN.md](DESI
 
 ## Quick start
 
-1. **Once per repo:** `/setup-devflow-skills`. Choose GitHub and single-context domain docs. It writes the `## Agent skills` block to the git-ignored `CLAUDE.local.md` and the tracker and domain-doc conventions to the git-ignored `.claude/docs/agents/`. Nothing is committed.
-2. **Open the Claude Code session in the main checkout,** not in a worktree. devflow creates and drives its own worktrees from there.
+1. **Once per repo:** `/setup-devflow-skills`. Choose GitHub and single-context domain docs. It writes the tracker and domain-doc conventions to the git-ignored `.devflow/agents/`. Nothing is committed. Which agents get the skills is chosen with `./sync.sh providers <list>` (see README).
+2. **Open the agent session in the main checkout,** not in a worktree. devflow creates and drives its own worktrees from there.
 3. **Run a workflow:**
 
 | Command | Use for |
@@ -37,7 +37,7 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 
 | Skill | Tier | What it does | devflow changes |
 |---|---|---|---|
-| `setup-devflow-skills` | slash | Per-repo setup: issue tracker, labels, base branch, domain-doc layout | **Renamed** from `setup-matt-pocock-skills`; block goes to `CLAUDE.local.md`; conventions go to `.claude/docs/agents/` (manifest `rewrite`); commits nothing; GitHub template trimmed to sub-issues and blocking; records a `Base branch:` line |
+| `setup-devflow-skills` | slash | Per-repo setup: issue tracker, labels, base branch, domain-doc layout | **Renamed** from `setup-matt-pocock-skills`; conventions go to `.devflow/agents/` (manifest `rewrite`); writes no instructions-file block; commits nothing; GitHub template trimmed to sub-issues and blocking; records a `Base branch:` line |
 | `grill-with-docs` | sub | Calls `grilling` + `domain-modeling` | description only |
 | `grilling` | sub | Interviews you in rounds of numbered questions with recommended answers | description only |
 | `domain-modeling` | sub | Challenges terms and writes `docs/GLOSSARY.md` and ADRs | patched: `docs/GLOSSARY.md` path; glossary heading is the repo name; ADRs named by issue |
@@ -45,7 +45,7 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 | `to-tickets` | sub | Spec → sub-issue tickets with native blocking, interfaces-first ticket, footprints, lanes, overlap check | patched |
 | `implement` | sub | Builds one spec inline with `tdd`, then `spec-review` | patched |
 | `implement-spec` | sub | Fast-lane tickets in parallel worktrees: a tester → implementer → merger for each ticket | patched |
-| `spec-review` | sub | Two-axis review (repo standards, fit with the spec) using parallel subagents | Matt's `code-review`, renamed (it avoids clashing with the built-in `/code-review`) and patched |
+| `spec-review` | sub | Three-axis review (repo standards, fit with the spec, correctness) using parallel subagents | Matt's `code-review`, renamed and patched; its Correctness axis is the only correctness review, so there is no separate built-in `/code-review` pass |
 | `codebase-design` | sub | Vocabulary for deep modules, interfaces and seams | description only |
 | `diagnosing-bugs` | auto | Builds a feedback loop first, then works through ranked hypotheses | none |
 | `research` | auto | Cited investigation against primary sources | none |
@@ -68,7 +68,7 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 
 ## How the workflows run
 
-**Session and worktree model.** The orchestrating session never leaves the main checkout. It works in worktrees by absolute path: `git -C <wt>`, `uv run --directory <wt>`, or a subshell `(cd <wt> && …)`. Claude Code's built-in worktree isolation (`EnterWorktree` and app-made worktree sessions) blocks writes to the main checkout's `.claude/docs/`, and no setting turns that off. So devflow never uses the native worktree tool, and `align` stops if it's started from a linked worktree. Subagents get absolute paths to specs, plans and state files.
+**Session and worktree model.** The orchestrating session never leaves the main checkout. It works in worktrees by absolute path: `git -C <wt>`, `uv run --directory <wt>`, or a subshell `(cd <wt> && …)`. Claude Code's built-in worktree isolation (`EnterWorktree` and app-made worktree sessions) blocks writes to the main checkout's `.devflow/`, and no setting turns that off. So devflow never uses the native worktree tool, and `align` stops if it's started from a linked worktree. Subagents get absolute paths to specs, plans and state files.
 
 **Ticket lanes (`/dev-multi`).**
 - `fast`: built in parallel. For each ticket, a tester commits acceptance tests, then an implementer (with `tdd`) builds it, then a merger merges into the integration worktree, runs the suite and closes the ticket.
@@ -79,7 +79,7 @@ Flags are parsed strictly: an unknown flag (for example `--rigour`) is refused, 
 **Reviews, in order.**
 1. Every task or ticket: an independent tester writes the acceptance tests first, and implementers may never change them.
 2. Rigor work: SDD runs a task review (spec compliance + quality) on every task.
-3. Every feature: `spec-review` + the built-in `code-review` over the whole branch, then one fix subagent for Critical/Important findings. Those that target acceptance tests aren't fixed: they go under Follow-ups as rulings for you. Minor findings go under Follow-ups in the PR.
+3. Every feature: `spec-review` (all three axes, Correctness included) over the whole branch, then one fix subagent for Critical/Important findings. Those that target acceptance tests aren't fixed: they go under Follow-ups as rulings for you. Minor findings go under Follow-ups in the PR.
 4. `verification-before-completion`, compared with the baseline.
 5. Push + PR, after one confirmation.
 
@@ -95,10 +95,10 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 | Feature worktree | `<main>/.worktrees/feat-<slug>` (the folder keeps this name after the branch rename) |
 | Fast-ticket branch / worktree | `feat/iss-N-<slug>--t<T>` / `<main>/.worktrees/feat-<slug>--t<T>` |
 | Rigor-ticket branch / worktree | `feat/iss-N-<slug>--t<T>` / `<main>/.worktrees/feat-iss-N-t<T>` |
-| Spec | GitHub issue #N (label `ready-for-agent`) + `<main>/.claude/docs/specs/iss-N-<slug>.md` (authoritative for agents) |
+| Spec | GitHub issue #N (label `ready-for-agent`) + `<main>/.devflow/specs/iss-N-<slug>.md` (authoritative for agents) |
 | Tickets | GitHub sub-issues of #N, labels `ready-for-agent` + `lane:fast` or `lane:rigor` (`needs-human` when stuck), native `blocked_by` edges |
-| Plan | `<main>/.claude/docs/plans/YYYY-MM-DD-iss-N[-t<T>]-<slug>.md` |
-| Run state | `<main>/.claude/docs/runs/iss-N.json` (`pending-<slug>.json` before #N exists). Stages: `worktree → specced → aligned → ticketed → building → built → reviewed → finished` |
+| Plan | `<main>/.devflow/plans/YYYY-MM-DD-iss-N[-t<T>]-<slug>.md` |
+| Run state | `<main>/.devflow/runs/iss-N.json` (`pending-<slug>.json` before #N exists). Stages: `worktree → specced → aligned → ticketed → building → built → reviewed → finished` |
 | SDD ledger | `<ticket or feature worktree>/.superpowers/sdd/<plan>/progress.md` |
 | ADR | `docs/adr/iss-N-<slug>.md` (older `0001-<slug>.md` files keep their names) |
 | Domain-docs commit | `docs(iss-N): glossary`, `… ADRs` or `… glossary and ADRs` (only what changed) |
@@ -111,13 +111,13 @@ SDD's own whole-branch review is skipped for devflow callers, because step 3 cov
 
 | Location | Contents | Tracked? |
 |---|---|---|
-| `<repo>/CLAUDE.local.md` | `## Agent skills` block (tracker, domain docs) | no (global ignore) |
 | `<repo>/docs/GLOSSARY.md`, `docs/adr/` | domain language and ADRs, committed on the feature branch | yes |
-| `<repo>/.claude/docs/` | specs, plans, run state (and auto-mode decision logs), setup's tracker and domain-doc conventions in `agents/` (main checkout only) | no (global ignore) |
+| `<repo>/.devflow/` | specs, plans, run state (and auto-mode decision logs), setup's tracker and domain-doc conventions in `agents/` (main checkout only) | no (global ignore) |
 | `<repo>/.worktrees/` | feature and ticket worktrees | no (global ignore) |
-| `~/.claude/skills/` | installed skills, generated by `./sync.sh` (never edit there) | n/a |
-| `~/.claude/CLAUDE.md` | devflow section between `devflow` markers, from `global/claude-md-section.md` | n/a |
-| `~/.config/git/ignore` | `.claude/docs/`, `.worktrees/`, `.claude/worktrees/`, `CLAUDE.local.md` | n/a |
+| Selected providers' skills folders (`~/.claude/skills`, `~/.agents/skills`) | installed skills, generated by `./sync.sh` (never edit there); Codex slash-tier skills get `agents/openai.yaml` with `allow_implicit_invocation: false` | n/a |
+| `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md` | devflow section between `devflow` markers, from `global/claude-md-section.md` (Cursor: paste it into Customize → Rules) | n/a |
+| `<devflow>/devflow.local.json` | selected providers | no |
+| `~/.config/git/ignore` | `.devflow/`, `.worktrees/`, `.claude/worktrees/` | n/a |
 
 ## Known gaps
 
