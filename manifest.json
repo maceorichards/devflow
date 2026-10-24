@@ -3,7 +3,12 @@
     "superpowers": {"url": "https://github.com/obra/superpowers.git", "dir": "vendor/superpowers"},
     "matt": {"url": "https://github.com/mattpocock/skills.git", "dir": "vendor/mattpocock-skills"}
   },
-  "install_dir": "~/.claude/skills",
+  "providers": [
+    {"name": "claude", "skills_dir": "~/.claude/skills", "instructions": "~/.claude/CLAUDE.md", "also_reads": []},
+    {"name": "codex", "skills_dir": "~/.agents/skills", "instructions": "~/.codex/AGENTS.md", "also_reads": []},
+    {"name": "gemini", "skills_dir": "~/.agents/skills", "instructions": "~/.gemini/GEMINI.md", "also_reads": []},
+    {"name": "cursor", "skills_dir": "~/.agents/skills", "instructions": null, "also_reads": ["~/.claude/skills", "~/.codex/skills"]}
+  ],
   "marker": ".managed-by-devflow",
   "strip_prefix": {"superpowers": "superpowers:"},
   "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills", "docs/agents/": ".claude/docs/agents/"},

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """devflow sync: build managed skills from vendor sources + patches + owned skills,
-install them into ~/.claude/skills, and keep the global CLAUDE.md section and git
-ignore lines in place.
+install them into the selected providers' skills folders, and keep the devflow
+section in their instructions files and the git ignore lines in place.
 
 Usage (via ../sync.sh):
   sync.sh                 rebuild everything at the locked vendor commits
@@ -22,7 +22,6 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, "manifest.json")
 LOCK = os.path.join(ROOT, "vendor.lock")
-CLAUDE_MD = os.path.expanduser("~/.claude/CLAUDE.md")
 GIT_IGNORE = os.path.expanduser("~/.config/git/ignore")
 MD_START = "<!-- devflow:start"
 MD_END = "<!-- devflow:end -->"
@@ -135,8 +134,7 @@ def dirs_equal(a, b, ignore=()):
     return all(dirs_equal(os.path.join(a, d), os.path.join(b, d), ignore) for d in cmp.common_dirs)
 
 
-def install(man, skill, stage, lock, dry):
-    dest_root = os.path.expanduser(man["install_dir"])
+def install(man, skill, stage, lock, dry, dest_root):
     dest = os.path.join(dest_root, skill["name"])
     marker = man["marker"]
     if os.path.exists(dest) and not os.path.exists(os.path.join(dest, marker)):
@@ -165,8 +163,7 @@ def install(man, skill, stage, lock, dry):
     return action + "d" if action.endswith("e") else action + "ed"
 
 
-def prune(man, dry):
-    dest_root = os.path.expanduser(man["install_dir"])
+def prune(man, dest_root, dry):
     names = {s["name"] for s in man["skills"]}
     out = []
     if not os.path.isdir(dest_root):
@@ -181,10 +178,11 @@ def prune(man, dry):
 
 
 # --------------------------------------------------------------------- global config
-def sync_claude_md(dry):
+def sync_instructions(tilde_path, dry):
+    path = os.path.expanduser(tilde_path)
     with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
         section = f.read().strip() + "\n"
-    cur = open(CLAUDE_MD).read() if os.path.exists(CLAUDE_MD) else ""
+    cur = open(path).read() if os.path.exists(path) else ""
     if MD_START in cur and MD_END in cur:
         a = cur.index(MD_START)
         b = cur.index(MD_END) + len(MD_END)
@@ -192,12 +190,12 @@ def sync_claude_md(dry):
     else:
         new = (cur.rstrip("\n") + "\n\n" if cur.strip() else "") + section
     if new == cur:
-        return "CLAUDE.md section unchanged"
+        return f"{tilde_path} devflow section unchanged"
     if not dry:
-        os.makedirs(os.path.dirname(CLAUDE_MD), exist_ok=True)
-        with open(CLAUDE_MD, "w") as f:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
             f.write(new)
-    return ("would update" if dry else "updated") + " ~/.claude/CLAUDE.md devflow section"
+    return f"{'would update' if dry else 'updated'} {tilde_path} devflow section"
 
 
 def sync_git_ignore(dry):
@@ -220,7 +218,21 @@ def sync_git_ignore(dry):
 
 
 # --------------------------------------------------------------------- commands
-def apply_all(man, lock, dry=False, only_sources=None):
+def selected_providers(man, selected):
+    names = selected or ["claude"]
+    return [p for p in man["providers"] if p["name"] in names]
+
+
+def install_dirs(man, selected):
+    out = []
+    for p in selected_providers(man, selected):
+        if p["skills_dir"] not in out:
+            out.append(p["skills_dir"])
+    return out
+
+
+def apply_all(man, lock, dry=False, only_sources=None, selected=None):
+    dirs = install_dirs(man, selected)
     for src in man["vendors"]:
         lock[src] = ensure_vendor(man, src, lock.get(src))
     stage_root = tempfile.mkdtemp(prefix="devflow-stage-")
@@ -234,13 +246,17 @@ def apply_all(man, lock, dry=False, only_sources=None):
                 failures.append((skill["name"], err))
                 print(f"  FAIL      {skill['name']}: {err}")
                 continue
-            status = install(man, skill, stage, lock, dry)
-            print(f"  {status:<10} {skill['name']}  [{skill['tier']}]")
+            for d in dirs:
+                status = install(man, skill, stage, lock, dry, os.path.expanduser(d))
+                print(f"  {status:<10} {skill['name']}  [{skill['tier']}]")
     finally:
         shutil.rmtree(stage_root, ignore_errors=True)
-    for line in prune(man, dry):
-        print("  " + line)
-    print("  " + sync_claude_md(dry))
+    for d in dirs:
+        for line in prune(man, os.path.expanduser(d), dry):
+            print("  " + line)
+    for p in selected_providers(man, selected):
+        if p["instructions"]:
+            print("  " + sync_instructions(p["instructions"], dry))
     print("  " + sync_git_ignore(dry))
     return failures
 
