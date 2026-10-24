@@ -1,8 +1,10 @@
+import json
 import os
 import re
+import subprocess
 import unittest
 
-from tests.harness import SyncSandbox
+from tests.harness import REAL_ROOT, SyncSandbox
 
 START = "<!-- devflow:start"
 END = "<!-- devflow:end -->"
@@ -208,6 +210,81 @@ class SelectionTest(unittest.TestCase):
         self.assertIn("~/.agents/skills", lines)
         self.assertIn("would install", r.stdout)
         self.assertIn("would update ~/.codex/AGENTS.md devflow section", r.stdout)
+
+
+class ProvidersCommandTest(unittest.TestCase):
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+
+    def stdout_lines(self, r):
+        return [l.strip() for l in r.stdout.splitlines()]
+
+    def local(self):
+        with open(self.sb.local_file) as f:
+            return json.load(f)
+
+    # #23, user story 5: choose providers with one command, then sync
+    def test_providers_writes_local_file_and_syncs(self):
+        sb = self.sb
+        r = sb.run("providers", "claude,codex")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(os.path.exists(sb.local_file), r.stdout + r.stderr)
+        self.assertEqual(self.local(), {"providers": ["claude", "codex"]})
+        names = sb.manifest_skill_names()
+        self.assertEqual(sb.managed_skills("~/.agents/skills"), names)
+        self.assertEqual(sb.managed_skills("~/.claude/skills"), names)
+        r2 = sb.run()
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        self.assertIn("~/.agents/skills", self.stdout_lines(r2))
+
+    # #23, user story 5: spaces stripped, duplicates dropped, order kept
+    def test_providers_dedupes_and_strips(self):
+        sb = self.sb
+        r = sb.run("providers", "claude, codex,codex")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(os.path.exists(sb.local_file), r.stdout + r.stderr)
+        self.assertEqual(self.local(), {"providers": ["claude", "codex"]})
+
+    # #23, user story 5: unknown name rejected before anything is written
+    def test_unknown_provider_writes_nothing(self):
+        sb = self.sb
+        sb.write_local(["claude"])
+        with open(sb.local_file, "rb") as f:
+            before = f.read()
+        r = sb.run("providers", "claude,cdx")
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("unknown provider: cdx", r.stderr)
+        with open(sb.local_file, "rb") as f:
+            self.assertEqual(f.read(), before)
+        self.assertEqual(os.listdir(sb.home_path("~")), [])
+
+    # #23, user story 5: an empty selection is rejected
+    def test_empty_providers_rejected(self):
+        for raw in ("", ","):
+            with self.subTest(raw=raw):
+                with SyncSandbox() as sb:
+                    r = sb.run("providers", raw)
+                    self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+                    self.assertFalse(os.path.exists(sb.local_file))
+                    self.assertEqual(os.listdir(sb.home_path("~")), [])
+
+    # #23, user story 15: dry run previews the choice and writes nothing
+    def test_providers_dry_run_writes_nothing(self):
+        sb = self.sb
+        r = sb.run("providers", "codex,gemini", "--dry-run")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(sb.local_file))
+        self.assertEqual(os.listdir(sb.home_path("~")), [])
+        self.assertIn("~/.agents/skills", r.stdout)
+        self.assertIn("would update ~/.codex/AGENTS.md devflow section", r.stdout)
+        self.assertIn("would update ~/.gemini/GEMINI.md devflow section", r.stdout)
+
+    # #23, user story 5: the per-machine choice is not committed
+    def test_local_file_is_git_ignored(self):
+        r = subprocess.run(["git", "check-ignore", "-q", "devflow.local.json"],
+                           cwd=REAL_ROOT)
+        self.assertEqual(r.returncode, 0)
 
 
 if __name__ == "__main__":
