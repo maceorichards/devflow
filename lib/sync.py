@@ -196,17 +196,43 @@ def install(man, skill, stage, lock, dry, dest_root):
     return action + "d" if action.endswith("e") else action + "ed"
 
 
+def managed_dirs(man, root):
+    if not os.path.isdir(root):
+        return []
+    return [d for d in sorted(os.listdir(root))
+            if os.path.isdir(os.path.join(root, d)) and not os.path.islink(os.path.join(root, d))
+            and os.path.exists(os.path.join(root, d, man["marker"]))]
+
+
 def prune(man, dest_root, dry):
     names = {s["name"] for s in man["skills"]}
     out = []
-    if not os.path.isdir(dest_root):
-        return out
-    for d in sorted(os.listdir(dest_root)):
-        p = os.path.join(dest_root, d)
-        if d not in names and os.path.exists(os.path.join(p, man["marker"])):
+    for d in managed_dirs(man, dest_root):
+        if d not in names:
             if not dry:
-                shutil.rmtree(p)
+                shutil.rmtree(os.path.join(dest_root, d))
             out.append(f"{'would remove' if dry else 'removed'} {d} (no longer in manifest)")
+    return out
+
+
+def cleanup_dirs(man, selected):
+    keep = install_dirs(man, selected)
+    out = []
+    for p in man["providers"]:
+        if p["skills_dir"] not in keep and p["skills_dir"] not in out:
+            out.append(p["skills_dir"])
+    return out
+
+
+def cleanup(man, tilde_dir, install_real, dry):
+    root = os.path.expanduser(tilde_dir)
+    if os.path.realpath(root) in install_real:
+        return ["SKIP (same folder as an install folder)"]
+    out = []
+    for d in managed_dirs(man, root):
+        if not dry:
+            shutil.rmtree(os.path.join(root, d))
+        out.append(f"{'would remove' if dry else 'removed'} {d} (provider not selected)")
     return out
 
 
@@ -318,6 +344,13 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
                 print("  " + line)
     finally:
         shutil.rmtree(stage_root, ignore_errors=True)
+    install_real = {os.path.realpath(os.path.expanduser(d)) for d in dirs}
+    for d in cleanup_dirs(man, selected):
+        lines = cleanup(man, d, install_real, dry)
+        if lines:
+            print(d)
+            for line in lines:
+                print("  " + line)
     print("instructions")
     for p in man["providers"]:
         if p["name"] in selected and p["instructions"]:
