@@ -135,5 +135,79 @@ class SkillCleanupTest(unittest.TestCase):
         self.assertNotIn("SKIP (same folder", r.stdout)
 
 
+class InstructionsCleanupTest(unittest.TestCase):
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+
+    def test_deselect_removes_section_from_end_of_file(self):
+        # #23: unselected provider's existing section is removed, rest of file kept
+        sb = self.sb
+        _write(sb.home_path("~/.codex/AGENTS.md"), "# mine\nkeep me\n")
+        self.assertEqual(sb.run("providers", "claude,codex").returncode, 0)
+        r = sb.run("providers", "claude")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(_read(sb.home_path("~/.codex/AGENTS.md")), "# mine\nkeep me\n")
+        self.assertIn("removed ~/.codex/AGENTS.md devflow section", r.stdout)
+        self.assertIn("<!-- devflow:start", _read(sb.home_path("~/.claude/CLAUDE.md")))
+
+    def test_deselect_preserves_text_around_mid_file_section(self):
+        # Review Focus 5: text before and after a mid-file section is preserved byte for byte
+        sb = self.sb
+        self.assertEqual(sb.run("providers", "codex").returncode, 0)
+        path = sb.home_path("~/.codex/AGENTS.md")
+        cur = _read(path)
+        a = cur.index("<!-- devflow:start")
+        b = cur.index("<!-- devflow:end -->") + len("<!-- devflow:end -->")
+        _write(path, "before\n" + cur[a:b] + "\nafter\n")
+        r = sb.run("providers", "claude")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(_read(path), "before\nafter\n")
+
+    def test_missing_instructions_file_never_created(self):
+        # characterization: passes today (missing file is never created)
+        sb = self.sb
+        r = sb.run("providers", "claude")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(sb.home_path("~/.codex/AGENTS.md")))
+        self.assertFalse(os.path.exists(sb.home_path("~/.gemini/GEMINI.md")))
+        self.assertFalse([l for l in r.stdout.splitlines() if "GEMINI.md" in l])
+
+    def test_incomplete_markers_left_untouched(self):
+        # Review Focus 4: start marker without end marker is left byte-for-byte untouched
+        sb = self.sb
+        path = sb.home_path("~/.gemini/GEMINI.md")
+        _write(path, "x\n<!-- devflow:start broken\nno end\n")
+        with open(path, "rb") as f:
+            before = f.read()
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), before)
+        self.assertIn("SKIP ~/.gemini/GEMINI.md: devflow markers incomplete, left untouched", r.stdout)
+
+    def test_dry_run_deselect_keeps_section(self):
+        sb = self.sb
+        self.assertEqual(sb.run("providers", "claude,codex").returncode, 0)
+        path = sb.home_path("~/.codex/AGENTS.md")
+        with open(path, "rb") as f:
+            before = f.read()
+        r = sb.run("providers", "claude", "--dry-run")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), before)
+        self.assertIn("would remove ~/.codex/AGENTS.md devflow section", r.stdout)
+
+    def test_reselect_restores_install_and_single_section(self):
+        # Review Focus 3: deselect then reselect reinstalls skills and exactly one section
+        # characterization: passes today (nothing is removed yet, so reselect is a no-op)
+        sb = self.sb
+        for sel in ("claude,codex", "claude", "claude,codex"):
+            r = sb.run("providers", sel)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sb.managed_skills("~/.agents/skills"), sb.manifest_skill_names())
+        self.assertEqual(_read(sb.home_path("~/.codex/AGENTS.md")).count("<!-- devflow:start"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
