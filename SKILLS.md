@@ -5,7 +5,7 @@ What is installed, what each skill does, and the names it uses. [DESIGN.md](DESI
 ## Quick start
 
 1. **Once per repo:** `/setup-devflow-skills`. Choose GitHub and single-context domain docs. It writes the tracker and domain-doc conventions to the git-ignored `.devflow/agents/`. Nothing is committed. Which agents get the skills is chosen with `./sync.sh providers <list>` (see README).
-2. **Open the Claude Code session in the main checkout,** not in a worktree. devflow creates and drives its own worktrees from there.
+2. **Open the agent session in the main checkout,** not in a worktree. devflow creates and drives its own worktrees from there.
 3. **Run a workflow:**
 
 | Command | Use for |
