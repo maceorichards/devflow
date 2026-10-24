@@ -12,13 +12,13 @@ The calling workflow tells you: its name (`dev-single` or `dev-multi`), its mode
 ## Paths you will use
 
 - **Main checkout:** `MAIN=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)`. Works from the main checkout and from any linked worktree.
-- **Agent docs (git-ignored, always in the main checkout):** `$MAIN/.claude/docs/specs/`, `$MAIN/.claude/docs/plans/`, `$MAIN/.claude/docs/runs/`.
+- **Agent docs (git-ignored, always in the main checkout):** `$MAIN/.devflow/specs/`, `$MAIN/.devflow/plans/`, `$MAIN/.devflow/runs/`.
 - **Feature worktree:** `WT=$MAIN/.worktrees/feat-<slug>` (the folder keeps this name after the branch is renamed).
 - **Domain docs (tracked, on the feature branch):** `docs/GLOSSARY.md`, `docs/adr/`.
 
 Always hand subagents **absolute paths** to specs, plans and state files. Never paste their content into a dispatch.
 
-**The orchestrating session stays in the main checkout.** It never moves into the feature worktree (no `EnterWorktree`, no `cd` that persists). A worktree-isolated session can't write `$MAIN/.claude/docs/`. Work in the worktree through absolute paths: `git -C "$WT" …`, `uv run --directory "$WT" …`, or a subshell `(cd "$WT" && …)` for tools that need their working directory there.
+**The orchestrating session stays in the main checkout.** It never moves into the feature worktree (no `EnterWorktree`, no `cd` that persists). A worktree-isolated session can't write `$MAIN/.devflow/`. Work in the worktree through absolute paths: `git -C "$WT" …`, `uv run --directory "$WT" …`, or a subshell `(cd "$WT" && …)` for tools that need their working directory there.
 
 ## 0. Preflight
 
@@ -26,9 +26,9 @@ Check each of these, and stop with a clear message if one fails:
 
 1. Inside a git repository whose `origin` is on GitHub, and `gh auth status` succeeds. Outside a repo, ask for its path (or to reopen the session there) and stop; never search the filesystem.
    - If this session is inside a **linked worktree** rather than the main checkout (detect as in `using-git-worktrees` Step 0), stop: "devflow runs from the main checkout. Reopen this session in `<main checkout>` and re-run."
-2. `$MAIN/docs/agents/issue-tracker.md` exists. If not: "Run `/setup-devflow-skills` once in this repo (choose GitHub, single-context domain docs), then re-run."
+2. `$MAIN/.devflow/agents/issue-tracker.md` exists. If not: "Run `/setup-devflow-skills` once in this repo (choose GitHub, single-context domain docs), then re-run."
    - These files are untracked and only the main checkout needs them, so nothing has to be committed or pushed. If the repo has only the old tracked `docs/agents` folder at its root, say so and ask the user to re-run `/setup-devflow-skills`, which moves it.
-3. `git -C "$MAIN" check-ignore -q .claude/docs/x`. If `.claude/docs/` isn't ignored, warn the user (devflow normally ignores it globally) and offer to add it to the repo's `.gitignore`. (Auto mode: add it to `$MAIN/.git/info/exclude` instead.)
+3. `git -C "$MAIN" check-ignore -q .devflow/x`. If `.devflow/` isn't ignored, warn the user (devflow normally ignores it globally) and offer to add it to the repo's `.gitignore`. (Auto mode: add it to `$MAIN/.git/info/exclude` instead.)
 4. The working tree you start from has no uncommitted changes you would carry along. If it does, ask before continuing. (Auto mode: stop and report; this is a hard stop.)
 
 ## 1. Feature worktree first
@@ -36,14 +36,14 @@ Check each of these, and stop with a clear message if one fails:
 Grilling writes tracked files, so the feature branch must exist first.
 
 1. **Slug:** kebab-case from the description, at most 40 characters.
-2. **Base branch:** the `Base branch: <name>` line in `$MAIN/docs/agents/issue-tracker.md`. If it's missing or still `<name>`, use the default branch (`gh repo view --json defaultBranchRef -q .defaultBranchRef.name`) and state it in the first grilling round. Run `git fetch origin <base>`.
+2. **Base branch:** the `Base branch: <name>` line in `$MAIN/.devflow/agents/issue-tracker.md`. If it's missing or still `<name>`, use the default branch (`gh repo view --json defaultBranchRef -q .defaultBranchRef.name`) and state it in the first grilling round. Run `git fetch origin <base>`.
 3. **Overlapping open PRs:** list open PRs (`gh pr list --state open --json number,title,files`) whose files the feature will likely touch, or that touch `docs/GLOSSARY.md` or `docs/adr/`. Mention them in the first grilling round (dependency on unmerged code, likely merge conflicts).
 4. **Create the worktree:** call the Skill tool with `using-git-worktrees`. Invoking the workflow is consent; don't ask again. Request branch `feat/<slug>` based on `origin/<base>`, created with:
    ```bash
    git -C "$MAIN" worktree add --no-track "$MAIN/.worktrees/feat-<slug>" -b feat/<slug> origin/<base>
    ```
 5. **Baseline:** let `using-git-worktrees` run project setup and the test suite. Record the command and the pass/fail counts, plus the **names** of any failing tests.
-6. Write the provisional state file `$MAIN/.claude/docs/runs/pending-<slug>.json` (schema in [STATE.md](STATE.md)), with stage `worktree`. In auto mode also set the `auto` fields and create the decision log `pending-<slug>-decisions.md` next to it.
+6. Write the provisional state file `$MAIN/.devflow/runs/pending-<slug>.json` (schema in [STATE.md](STATE.md)), with stage `worktree`. In auto mode also set the `auto` fields and create the decision log `pending-<slug>-decisions.md` next to it.
 
 ## 2. Grill
 
@@ -51,7 +51,7 @@ Call the Skill tool with `grill-with-docs`, working inside the feature worktree.
 
 ## 3. Spec
 
-Call the Skill tool with `to-spec`. Pass it the slug and tell it to use devflow spec storage. It creates issue **#N** and writes `$MAIN/.claude/docs/specs/iss-N-<slug>.md`.
+Call the Skill tool with `to-spec`. Pass it the slug and tell it to use devflow spec storage. It creates issue **#N** and writes `$MAIN/.devflow/specs/iss-N-<slug>.md`.
 
 Then:
 - Rename the branch: `git branch -m feat/iss-N-<slug>`. The worktree folder keeps its name.
@@ -81,8 +81,8 @@ On approval, set stage `aligned`. Then return control to the calling workflow wi
 
 When a workflow is invoked with `#N`, after preflight:
 
-1. Read `$MAIN/.claude/docs/runs/iss-N.json`. **If it's missing, reconstruct it in memory:**
-   - spec from `$MAIN/.claude/docs/specs/iss-N-*.md` (or the issue body),
+1. Read `$MAIN/.devflow/runs/iss-N.json`. **If it's missing, reconstruct it in memory:**
+   - spec from `$MAIN/.devflow/specs/iss-N-*.md` (or the issue body),
    - branch from `git branch --list 'feat/iss-N-*'`,
    - worktree from `git worktree list`,
    - tickets from the issue's sub-issues.

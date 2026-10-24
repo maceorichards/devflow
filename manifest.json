@@ -3,10 +3,15 @@
     "superpowers": {"url": "https://github.com/obra/superpowers.git", "dir": "vendor/superpowers"},
     "matt": {"url": "https://github.com/mattpocock/skills.git", "dir": "vendor/mattpocock-skills"}
   },
-  "install_dir": "~/.claude/skills",
+  "providers": [
+    {"name": "claude", "skills_dir": "~/.claude/skills", "instructions": "~/.claude/CLAUDE.md", "also_reads": []},
+    {"name": "codex", "skills_dir": "~/.agents/skills", "instructions": "~/.codex/AGENTS.md", "also_reads": []},
+    {"name": "gemini", "skills_dir": "~/.agents/skills", "instructions": "~/.gemini/GEMINI.md", "also_reads": []},
+    {"name": "cursor", "skills_dir": "~/.agents/skills", "instructions": null, "also_reads": ["~/.claude/skills", "~/.codex/skills"]}
+  ],
   "marker": ".managed-by-devflow",
   "strip_prefix": {"superpowers": "superpowers:"},
-  "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills", "docs/agents/": ".claude/docs/agents/"},
+  "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills", "docs/agents/": ".devflow/agents/", "Setup Matt Pocock Skills": "Setup devflow skills"},
   "skills": [
     {"name": "dev-single", "source": "owned", "path": "owned/dev-single", "tier": "slash"},
     {"name": "dev-multi", "source": "owned", "path": "owned/dev-multi", "tier": "slash"},
@@ -21,7 +26,7 @@
     {"name": "domain-modeling", "source": "matt", "path": "skills/engineering/domain-modeling", "tier": "sub", "patch": "patches/domain-modeling.patch",
      "description": "Challenge terms and record them in docs/GLOSSARY.md and ADRs in docs/adr/. Use only when grill-with-docs calls for it, or the user asks for it by name."},
     {"name": "to-spec", "source": "matt", "path": "skills/engineering/to-spec", "tier": "sub", "patch": "patches/to-spec.patch",
-     "description": "Devflow building block: synthesize the conversation into a spec (GitHub issue + local .claude/docs/specs file). Use only when a devflow workflow calls for it, or the user asks for it by name."},
+     "description": "Devflow building block: synthesize the conversation into a spec (GitHub issue + local .devflow/specs file). Use only when a devflow workflow calls for it, or the user asks for it by name."},
     {"name": "to-tickets", "source": "matt", "path": "skills/engineering/to-tickets", "tier": "sub", "patch": "patches/to-tickets.patch",
      "description": "Devflow building block: split a spec into GitHub sub-issue tickets with blocking edges, lanes and footprints. Use only when a devflow workflow calls for it, or the user asks for it by name."},
     {"name": "implement", "source": "matt", "path": "skills/engineering/implement", "tier": "sub", "patch": "patches/implement.patch",
@@ -31,14 +36,14 @@
     {"name": "codebase-design", "source": "matt", "path": "skills/engineering/codebase-design", "tier": "sub",
      "description": "Vocabulary reference for deep modules, interfaces and seams. Use only when tdd or another skill calls for it, or the user asks for it by name."},
     {"name": "spec-review", "source": "matt", "path": "skills/engineering/code-review", "tier": "sub", "patch": "patches/spec-review.patch",
-     "description": "Two-axis diff review (repo standards + fit with the spec) using parallel subagents. Use when a devflow workflow or implement calls for it, or the user asks to review a branch against its spec."},
+     "description": "Three-axis diff review (repo standards, fit with the spec, correctness) using parallel subagents. Use when a devflow workflow or implement calls for it, or the user asks to review a branch against its spec."},
     {"name": "diagnosing-bugs", "source": "matt", "path": "skills/engineering/diagnosing-bugs", "tier": "auto"},
     {"name": "research", "source": "matt", "path": "skills/engineering/research", "tier": "auto"},
     {"name": "pr", "source": "matt", "path": "skills/engineering/pr", "tier": "auto"},
     {"name": "grill-me", "source": "matt", "path": "skills/productivity/grill-me", "tier": "slash"},
     {"name": "prototype", "source": "matt", "path": "skills/engineering/prototype", "tier": "slash"},
     {"name": "setup-devflow-skills", "source": "matt", "path": "skills/engineering/setup-matt-pocock-skills", "tier": "slash", "patch": "patches/setup-devflow-skills.patch",
-     "description": "Configure this repo for devflow: issue tracker, triage labels and domain doc layout, with the Agent skills block in the git-ignored CLAUDE.local.md. Run once per repo before the first /dev-single or /dev-multi."},
+     "description": "Configure this repo for devflow: issue tracker, triage labels and domain doc layout, kept in the git-ignored .devflow/agents/. Run once per repo before the first /dev-single or /dev-multi."},
 
     {"name": "writing-plans", "source": "superpowers", "path": "skills/writing-plans", "tier": "sub", "patch": "patches/writing-plans.patch",
      "description": "Devflow building block: turn a spec (optionally one ticket) into an exact task-by-task plan. Use only when a devflow workflow calls for it, or the user asks for it by name."},

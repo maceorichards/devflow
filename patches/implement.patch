@@ -1,12 +1,12 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 04:24:17
+--- a/SKILL.md	2026-10-23 22:31:03
++++ b/SKILL.md	2026-10-23 22:32:10
 @@ -8,10 +8,12 @@
  
  If the user passes a ticket reference, fetch it from the issue tracker and state its title before starting. If the reference is ambiguous, ask.
  
 -Call the Skill tool with "tdd" where possible, at pre-agreed seams.
-+For a devflow spec (`#N`), read the local spec file `<main checkout>/.claude/docs/specs/iss-N-*.md` (authoritative; `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`) and pass its absolute path to anything you dispatch.
++For a devflow spec (`#N`), read the local spec file `<main checkout>/.devflow/specs/iss-N-*.md` (authoritative; `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`) and pass its absolute path to anything you dispatch.
  
 +Call the Skill tool with "tdd" where possible, at pre-agreed seams. You are the main session, so `tdd` runs in main-session mode and launches its own tester subagent.
 +
