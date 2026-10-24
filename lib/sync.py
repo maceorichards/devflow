@@ -22,6 +22,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, "manifest.json")
 LOCK = os.path.join(ROOT, "vendor.lock")
+LOCAL = os.path.join(ROOT, "devflow.local.json")
 GIT_IGNORE = os.path.expanduser("~/.config/git/ignore")
 MD_START = "<!-- devflow:start"
 MD_END = "<!-- devflow:end -->"
@@ -218,50 +219,85 @@ def sync_git_ignore(dry):
 
 
 # --------------------------------------------------------------------- commands
-def selected_providers(man, selected):
-    names = selected or ["claude"]
-    return [p for p in man["providers"] if p["name"] in names]
+def validate_providers(man, names):
+    known = [p["name"] for p in man["providers"]]
+    if not names:
+        sys.exit(f"choose at least one provider (known: {', '.join(known)})")
+    out = []
+    for n in names:
+        if n not in known:
+            sys.exit(f"unknown provider: {n} (known: {', '.join(known)})")
+        if n not in out:
+            out.append(n)
+    return out
+
+
+def selected_providers(man):
+    if not os.path.exists(LOCAL):
+        return ["claude"]
+    try:
+        with open(LOCAL) as f:
+            names = json.load(f)["providers"]
+    except (ValueError, KeyError, TypeError):
+        names = None
+    if not isinstance(names, list):
+        sys.exit('devflow.local.json: expected {"providers": [...]}')
+    return validate_providers(man, names)
 
 
 def install_dirs(man, selected):
+    chosen = [p for p in man["providers"] if p["name"] in selected]
     out = []
-    for p in selected_providers(man, selected):
-        if p["skills_dir"] not in out:
+    for p in chosen:
+        covered = any(q is not p and q["skills_dir"] in p["also_reads"] for q in chosen)
+        if not covered and p["skills_dir"] not in out:
             out.append(p["skills_dir"])
     return out
 
 
 def apply_all(man, lock, dry=False, only_sources=None, selected=None):
+    if selected is None:
+        selected = selected_providers(man)
     dirs = install_dirs(man, selected)
+    print("providers: " + ", ".join(selected))
     for src in man["vendors"]:
         lock[src] = ensure_vendor(man, src, lock.get(src))
     stage_root = tempfile.mkdtemp(prefix="devflow-stage-")
     failures = []
     try:
+        built = []
         for skill in man["skills"]:
             if only_sources and skill["source"] not in only_sources:
                 continue
             stage, err = build_skill(man, skill, stage_root)
             if err:
                 failures.append((skill["name"], err))
-                print(f"  FAIL      {skill['name']}: {err}")
-                continue
-            for d in dirs:
+            else:
+                built.append((skill, stage))
+        for i, d in enumerate(dirs):
+            print(d)
+            if i == 0:
+                for name, err in failures:
+                    print(f"  FAIL      {name}: {err}")
+            for skill, stage in built:
                 status = install(man, skill, stage, lock, dry, os.path.expanduser(d))
                 print(f"  {status:<10} {skill['name']}  [{skill['tier']}]")
+            for line in prune(man, os.path.expanduser(d), dry):
+                print("  " + line)
     finally:
         shutil.rmtree(stage_root, ignore_errors=True)
-    for d in dirs:
-        for line in prune(man, os.path.expanduser(d), dry):
-            print("  " + line)
-    for p in selected_providers(man, selected):
-        if p["instructions"]:
+    print("instructions")
+    for p in man["providers"]:
+        if p["name"] in selected and p["instructions"]:
             print("  " + sync_instructions(p["instructions"], dry))
     print("  " + sync_git_ignore(dry))
+    if "cursor" in selected:
+        print("note: Cursor keeps its rules in its settings: paste global/claude-md-section.md into Customize → Rules.")
     return failures
 
 
 def update(man, lock):
+    selected = selected_providers(man)
     stage_root = tempfile.mkdtemp(prefix="devflow-update-")
     try:
         for src in man["vendors"]:
@@ -298,7 +334,7 @@ def update(man, lock):
                 lock[src] = new
     finally:
         shutil.rmtree(stage_root, ignore_errors=True)
-    failures = apply_all(man, lock)
+    failures = apply_all(man, lock, selected=selected)
     save_lock(lock)
     return failures
 
