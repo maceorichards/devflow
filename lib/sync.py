@@ -7,6 +7,8 @@ Usage (via ../sync.sh):
   sync.sh                 rebuild everything at the locked vendor commits
   sync.sh --dry-run       show what would change, write nothing
   sync.sh --update        pull vendors, show upstream changes, rebuild, re-lock
+  sync.sh providers <a,b>   choose providers (claude, codex, gemini, cursor), then sync
+  sync.sh providers <a,b> --dry-run   preview that choice, write nothing
   sync.sh edit <skill>    prepare .patch-work/<skill>/{a,b} to change a patch (edit b/)
   sync.sh save <skill>    write patches/<skill>.patch from .patch-work/<skill>
 """
@@ -296,6 +298,18 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
     return failures
 
 
+def set_providers(man, lock, csv, dry):
+    names = validate_providers(man, [n.strip() for n in csv.split(",") if n.strip()])
+    print("devflow sync" + (" (dry run)" if dry else ""))
+    if dry:
+        return apply_all(man, lock, dry=True, selected=names)
+    with open(LOCAL, "w") as f:
+        f.write(json.dumps({"providers": names}, indent=2) + "\n")
+    fails = apply_all(man, lock, selected=names)
+    save_lock(lock)
+    return fails
+
+
 def update(man, lock):
     selected = selected_providers(man)
     stage_root = tempfile.mkdtemp(prefix="devflow-update-")
@@ -387,7 +401,9 @@ def main(argv):
         return edit(man, lock, argv[1])
     if argv[:1] == ["save"] and len(argv) == 2:
         return save(man, argv[1])
-    if argv == ["--update"]:
+    if argv[:1] == ["providers"] and len(argv) in (2, 3) and argv[2:] in ([], ["--dry-run"]):
+        fails = set_providers(man, lock, argv[1], argv[2:] == ["--dry-run"])
+    elif argv == ["--update"]:
         fails = update(man, lock)
     elif argv in ([], ["--dry-run"]):
         dry = argv == ["--dry-run"]
