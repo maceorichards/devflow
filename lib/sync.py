@@ -224,9 +224,17 @@ def cleanup_dirs(man, selected):
     return out
 
 
-def cleanup(man, tilde_dir, install_real, dry):
+def folder_id(path):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_dev, st.st_ino)
+
+
+def cleanup(man, tilde_dir, install_ids, dry):
     root = os.path.expanduser(tilde_dir)
-    if os.path.realpath(root) in install_real:
+    if folder_id(root) in install_ids:
         return ["SKIP (same folder as an install folder)"]
     out = []
     for d in managed_dirs(man, root):
@@ -344,9 +352,9 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
                 print("  " + line)
     finally:
         shutil.rmtree(stage_root, ignore_errors=True)
-    install_real = {os.path.realpath(os.path.expanduser(d)) for d in dirs}
+    install_ids = {folder_id(os.path.expanduser(d)) for d in dirs} - {None}
     for d in cleanup_dirs(man, selected):
-        lines = cleanup(man, d, install_real, dry)
+        lines = cleanup(man, d, install_ids, dry)
         if lines:
             print(d)
             for line in lines:

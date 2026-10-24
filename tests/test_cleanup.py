@@ -109,6 +109,24 @@ class SkillCleanupTest(unittest.TestCase):
             self.assertTrue(os.path.islink(sb.home_path(d + "/ext")), d)
         self.assertTrue(os.path.exists(os.path.join(ext, "SKILL.md")))
 
+    def test_case_mismatched_symlink_to_claude_is_not_cleaned(self):
+        sb = self.sb
+        probe = os.path.join(sb.home, "CaseProbe")
+        os.makedirs(probe)
+        insensitive = os.path.exists(os.path.join(sb.home, "caseprobe"))
+        os.rmdir(probe)
+        if not insensitive:
+            self.skipTest("case-sensitive filesystem")
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        os.makedirs(sb.home_path("~/.agents"), exist_ok=True)
+        os.symlink(os.path.join(sb.home, ".CLAUDE", "skills"), sb.home_path("~/.agents/skills"))
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sb.managed_skills("~/.claude/skills"), sb.manifest_skill_names())
+        self.assertIn("SKIP (same folder as an install folder)", r.stdout)
+        self.assertTrue(os.path.islink(sb.home_path("~/.agents/skills")))
+
     def test_default_output_unchanged_without_cleanup(self):
         # characterization: passes today; default selection prints no cleanup lines
         r = self.sb.run()
