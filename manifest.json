@@ -11,7 +11,7 @@
   ],
   "marker": ".managed-by-devflow",
   "strip_prefix": {"superpowers": "superpowers:"},
-  "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills", "docs/agents/": ".devflow/agents/"},
+  "rewrite": {"setup-matt-pocock-skills": "setup-devflow-skills", "docs/agents/": ".devflow/agents/", "Setup Matt Pocock Skills": "Setup devflow skills"},
   "skills": [
     {"name": "dev-single", "source": "owned", "path": "owned/dev-single", "tier": "slash"},
     {"name": "dev-multi", "source": "owned", "path": "owned/dev-multi", "tier": "slash"},

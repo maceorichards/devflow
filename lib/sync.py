@@ -86,6 +86,35 @@ def set_frontmatter(path, skill):
         f.write(new)
 
 
+# --------------------------------------------------------------------- codex policy
+def set_codex_policy(stage, skill):
+    path = os.path.join(stage, "agents", "openai.yaml")
+    lines = []
+    if os.path.exists(path):
+        with open(path) as f:
+            lines = f.read().split("\n")
+    # drop any top-level policy: block (that line and its indented children)
+    kept, skipping = [], False
+    for l in lines:
+        if l.startswith("policy:"):
+            skipping = True
+        elif skipping and (l.startswith((" ", "\t")) or not l.strip()):
+            continue
+        else:
+            skipping = False
+            kept.append(l)
+    text = "\n".join(kept).strip("\n")
+    if skill["tier"] == "slash":
+        text = (text + "\n" if text else "") + "policy:\n  allow_implicit_invocation: false"
+    if not text:
+        if os.path.exists(path):
+            os.remove(path)
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(text + "\n")
+
+
 # --------------------------------------------------------------------- build
 def build_skill(man, skill, stage_root):
     """Return (staged_dir, error_or_None)."""
@@ -102,7 +131,7 @@ def build_skill(man, skill, stage_root):
         r = sh(["git", "apply", "--whitespace=nowarn", "-p1", patch], cwd=stage, check=False)
         if r.returncode != 0:
             return stage, f"patch failed: {skill['patch']}\n{r.stderr.strip()}"
-    # Text rewrites on every .md file, after the patch: the vendor's prefix is
+    # Text rewrites on every .md and .yaml file, after the patch: the vendor's prefix is
     # stripped, then the manifest's "rewrite" map (e.g. renamed skills) applies.
     subs = []
     prefix = man.get("strip_prefix", {}).get(skill["source"])
@@ -112,7 +141,7 @@ def build_skill(man, skill, stage_root):
     if subs:
         for dp, _, files in os.walk(stage):
             for fn in files:
-                if fn.endswith(".md"):
+                if fn.endswith((".md", ".yaml")):
                     p = os.path.join(dp, fn)
                     with open(p) as f:
                         t = f.read()
@@ -123,6 +152,7 @@ def build_skill(man, skill, stage_root):
                         with open(p, "w") as f:
                             f.write(new)
     set_frontmatter(os.path.join(stage, "SKILL.md"), skill)
+    set_codex_policy(stage, skill)
     return stage, None
 
 
