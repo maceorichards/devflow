@@ -259,11 +259,21 @@ def markers_skip(tilde_path):
     return f"SKIP {tilde_path}: devflow markers incomplete, left untouched"
 
 
+def unreadable_skip(tilde_path):
+    return f"SKIP {tilde_path}: unreadable, left untouched"
+
+
 def sync_instructions(tilde_path, dry):
     path = os.path.expanduser(tilde_path)
     with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
         section = f.read().strip() + "\n"
-    cur = open(path).read() if os.path.exists(path) else ""
+    cur = ""
+    if os.path.exists(path):
+        try:
+            with open(path, newline="") as f:
+                cur = f.read()
+        except (UnicodeDecodeError, OSError):
+            return unreadable_skip(tilde_path)
     bounds = section_bounds(cur)
     if bounds == "malformed":
         return markers_skip(tilde_path)
@@ -276,7 +286,7 @@ def sync_instructions(tilde_path, dry):
         return f"{tilde_path} devflow section unchanged"
     if not dry:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", newline="") as f:
             f.write(new)
     return f"{'would update' if dry else 'updated'} {tilde_path} devflow section"
 
@@ -285,8 +295,11 @@ def remove_instructions(tilde_path, dry):
     path = os.path.expanduser(tilde_path)
     if not os.path.isfile(path):
         return None
-    with open(path) as f:
-        cur = f.read()
+    try:
+        with open(path, newline="") as f:
+            cur = f.read()
+    except (UnicodeDecodeError, OSError):
+        return unreadable_skip(tilde_path)
     bounds = section_bounds(cur)
     if bounds is None:
         return None
@@ -300,7 +313,7 @@ def remove_instructions(tilde_path, dry):
     else:
         new = cur[:a] + cur[b:]
     if not dry:
-        with open(path, "w") as f:
+        with open(path, "w", newline="") as f:
             f.write(new)
     return f"{'would remove' if dry else 'removed'} {tilde_path} devflow section"
 
@@ -400,12 +413,19 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
             for line in lines:
                 print("  " + line)
     print("instructions")
+    kept = {}
     for p in man["providers"]:
         if p["name"] in selected and p["instructions"]:
             print("  " + sync_instructions(p["instructions"], dry))
+            kept.setdefault(folder_id(os.path.expanduser(p["instructions"])), p["instructions"])
+    kept.pop(None, None)
     for p in man["providers"]:
         if p["name"] not in selected and p["instructions"]:
-            status = remove_instructions(p["instructions"], dry)
+            same = kept.get(folder_id(os.path.expanduser(p["instructions"])))
+            if same:
+                status = f"SKIP {p['instructions']}: same file as {same}, left untouched"
+            else:
+                status = remove_instructions(p["instructions"], dry)
             if status:
                 print("  " + status)
     print("  " + sync_git_ignore(dry))

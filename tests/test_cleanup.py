@@ -232,5 +232,50 @@ class InstructionsCleanupTest(unittest.TestCase):
             self.assertEqual(_read(path), orig)
 
 
+class FinalReviewFixTest(unittest.TestCase):
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+
+    def test_unselected_link_to_selected_instructions_file_is_skipped(self):
+        # F1: an unselected provider's instructions file that is the selected one's file is never stripped
+        sb = self.sb
+        os.makedirs(sb.home_path("~/.codex"))
+        _write(sb.home_path("~/.claude/CLAUDE.md"), "# mine\n")
+        os.symlink(sb.home_path("~/.claude/CLAUDE.md"), sb.home_path("~/.codex/AGENTS.md"))
+        for _ in range(2):
+            r = sb.run()
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(_read(sb.home_path("~/.claude/CLAUDE.md")).count("<!-- devflow:start"), 1)
+            self.assertTrue(os.path.islink(sb.home_path("~/.codex/AGENTS.md")))
+            self.assertIn("SKIP ~/.codex/AGENTS.md: same file as ~/.claude/CLAUDE.md", r.stdout)
+
+    def test_undecodable_unselected_instructions_file_is_skipped(self):
+        # F2 / spec story 1: an unreadable instructions file never crashes a default sync
+        sb = self.sb
+        path = sb.home_path("~/.gemini/GEMINI.md")
+        os.makedirs(os.path.dirname(path))
+        with open(path, "wb") as f:
+            f.write(b"\xff\xfe bad \x80\n")
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), b"\xff\xfe bad \x80\n")
+        self.assertIn("SKIP ~/.gemini/GEMINI.md: unreadable, left untouched", r.stdout)
+
+    def test_crlf_line_endings_survive_select_and_deselect(self):
+        # F3 / spec story 13: the rest of the file is left untouched, line endings included
+        sb = self.sb
+        path = sb.home_path("~/.codex/AGENTS.md")
+        os.makedirs(os.path.dirname(path))
+        with open(path, "wb") as f:
+            f.write(b"a\r\nb\r\n")
+        for sel in ("claude,codex", "claude"):
+            r = sb.run("providers", sel)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), b"a\r\nb\r\n")
+
+
 if __name__ == "__main__":
     unittest.main()
