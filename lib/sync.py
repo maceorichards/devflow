@@ -245,14 +245,30 @@ def cleanup(man, tilde_dir, install_ids, dry):
 
 
 # --------------------------------------------------------------------- global config
+def section_bounds(cur):
+    """(a, b) for exactly one well-ordered section, None for no markers, "malformed" otherwise."""
+    starts, ends = cur.count(MD_START), cur.count(MD_END)
+    if not starts and not ends:
+        return None
+    if starts != 1 or ends != 1 or cur.index(MD_END) < cur.index(MD_START):
+        return "malformed"
+    return cur.index(MD_START), cur.index(MD_END) + len(MD_END)
+
+
+def markers_skip(tilde_path):
+    return f"SKIP {tilde_path}: devflow markers incomplete, left untouched"
+
+
 def sync_instructions(tilde_path, dry):
     path = os.path.expanduser(tilde_path)
     with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
         section = f.read().strip() + "\n"
     cur = open(path).read() if os.path.exists(path) else ""
-    if MD_START in cur and MD_END in cur:
-        a = cur.index(MD_START)
-        b = cur.index(MD_END) + len(MD_END)
+    bounds = section_bounds(cur)
+    if bounds == "malformed":
+        return markers_skip(tilde_path)
+    if bounds:
+        a, b = bounds
         new = cur[:a] + section.rstrip("\n") + cur[b:]
     else:
         new = (cur.rstrip("\n") + "\n\n" if cur.strip() else "") + section
@@ -271,12 +287,12 @@ def remove_instructions(tilde_path, dry):
         return None
     with open(path) as f:
         cur = f.read()
-    if MD_START not in cur and MD_END not in cur:
+    bounds = section_bounds(cur)
+    if bounds is None:
         return None
-    if MD_START not in cur or MD_END not in cur[cur.index(MD_START):]:
-        return f"SKIP {tilde_path}: devflow markers incomplete, left untouched"
-    a = cur.index(MD_START)
-    b = cur.index(MD_END) + len(MD_END)
+    if bounds == "malformed":
+        return markers_skip(tilde_path)
+    a, b = bounds
     if cur[b:b + 1] == "\n":
         b += 1
     if not cur[b:]:

@@ -208,6 +208,29 @@ class InstructionsCleanupTest(unittest.TestCase):
         self.assertEqual(sb.managed_skills("~/.agents/skills"), sb.manifest_skill_names())
         self.assertEqual(_read(sb.home_path("~/.codex/AGENTS.md")).count("<!-- devflow:start"), 1)
 
+    def test_stray_end_marker_left_untouched(self):
+        # a stray end marker before any section: never touched, never grows
+        sb = self.sb
+        path = sb.home_path("~/.codex/AGENTS.md")
+        orig = "mine\n<!-- devflow:end -->\nuser\n"
+        _write(path, orig)
+        skip = "SKIP ~/.codex/AGENTS.md: devflow markers incomplete, left untouched"
+        for args in (("providers", "claude,codex"), ("providers", "claude"), ()):
+            r = sb.run(*args)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(_read(path), orig)
+            self.assertIn(skip, r.stdout)
+
+    def test_damaged_start_marker_survives_select_and_deselect(self):
+        sb = self.sb
+        path = sb.home_path("~/.gemini/GEMINI.md")
+        orig = "x\n<!-- devflow:start broken\nno end\n"
+        _write(path, orig)
+        for args in (("providers", "claude,gemini"), ("providers", "claude")):
+            r = sb.run(*args)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(_read(path), orig)
+
 
 if __name__ == "__main__":
     unittest.main()
