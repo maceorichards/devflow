@@ -265,6 +265,30 @@ def sync_instructions(tilde_path, dry):
     return f"{'would update' if dry else 'updated'} {tilde_path} devflow section"
 
 
+def remove_instructions(tilde_path, dry):
+    path = os.path.expanduser(tilde_path)
+    if not os.path.isfile(path):
+        return None
+    with open(path) as f:
+        cur = f.read()
+    if MD_START not in cur and MD_END not in cur:
+        return None
+    if MD_START not in cur or MD_END not in cur[cur.index(MD_START):]:
+        return f"SKIP {tilde_path}: devflow markers incomplete, left untouched"
+    a = cur.index(MD_START)
+    b = cur.index(MD_END) + len(MD_END)
+    if cur[b:b + 1] == "\n":
+        b += 1
+    if not cur[b:]:
+        new = cur[:a].rstrip("\n") + "\n" if cur[:a].strip() else ""
+    else:
+        new = cur[:a] + cur[b:]
+    if not dry:
+        with open(path, "w") as f:
+            f.write(new)
+    return f"{'would remove' if dry else 'removed'} {tilde_path} devflow section"
+
+
 def sync_git_ignore(dry):
     with open(os.path.join(ROOT, "global", "git-ignore-lines")) as f:
         want = [l.strip() for l in f if l.strip() and not l.startswith("#")]
@@ -363,6 +387,11 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
     for p in man["providers"]:
         if p["name"] in selected and p["instructions"]:
             print("  " + sync_instructions(p["instructions"], dry))
+    for p in man["providers"]:
+        if p["name"] not in selected and p["instructions"]:
+            status = remove_instructions(p["instructions"], dry)
+            if status:
+                print("  " + status)
     print("  " + sync_git_ignore(dry))
     if "cursor" in selected:
         print("note: Cursor keeps its rules in its settings: paste global/claude-md-section.md into Customize → Rules.")
