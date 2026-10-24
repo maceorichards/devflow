@@ -1,13 +1,13 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-17 04:24:17
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:29:29
 @@ -28,8 +28,9 @@
  
  1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
  2. A path the user passed as an argument.
 -3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 -4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
-+3. A devflow spec file: `<main checkout>/.claude/docs/specs/iss-<N>-*.md`, for the issue number in the branch name (`feat/iss-<N>-...`) or in the commit messages. Prefer it over the issue body. `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`.
++3. A devflow spec file: `<main checkout>/.devflow/specs/iss-<N>-*.md`, for the issue number in the branch name (`feat/iss-<N>-...`) or in the commit messages. Prefer it over the issue body. `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`.
 +4. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 +5. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
  

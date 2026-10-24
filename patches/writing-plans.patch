@@ -1,15 +1,15 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-19 13:08:29
-+++ b/SKILL.md	2026-10-19 15:15:10
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:28:55
 @@ -13,9 +13,12 @@
  
  **Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
  
 -**Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 -- (User preferences for plan location override this default)
-+**Save plans to:** `<main checkout>/.claude/docs/plans/YYYY-MM-DD-iss-<N>[-t<T>]-<slug>.md` (git-ignored; `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`), or the exact path the caller gives you.
++**Save plans to:** `<main checkout>/.devflow/plans/YYYY-MM-DD-iss-<N>[-t<T>]-<slug>.md` (git-ignored; `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`), or the exact path the caller gives you.
  
-+**Input:** a spec (absolute path; devflow specs live in `<main checkout>/.claude/docs/specs/`), optionally with one ticket (`#T`). With a ticket, plan only that ticket's scope; the spec stays the authority. Plan against the current state of the branch you'll execute on.
++**Input:** a spec (absolute path; devflow specs live in `<main checkout>/.devflow/specs/`), optionally with one ticket (`#T`). With a ticket, plan only that ticket's scope; the spec stays the authority. Plan against the current state of the branch you'll execute on.
 +
 +**Acceptance tests come from a separate tester.** A tester subagent writes each task's acceptance tests and interface stubs *before* the implementer runs, working only from the task text. So every task's test steps must be fully specified (test names, assertions, exact values and their sources, tolerances), and every Interfaces block must give exact signatures: the tester writes stubs from it.
 +

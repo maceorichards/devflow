@@ -54,7 +54,7 @@ When every ticket is `lane:fast`, this one step builds everything.
 
 For each **ready `lane:rigor`** ticket `T`, highest unblock count first (tickets that unblock others go first):
 
-1. **Plan:** call the Skill tool with `writing-plans`. Pass the absolute spec path and ticket `#T`, and save to `$MAIN/.claude/docs/plans/<YYYY-MM-DD>-iss-N-t<T>-<slug>.md`. Plan against the **current** integration branch, since earlier tickets may have changed the code.
+1. **Plan:** call the Skill tool with `writing-plans`. Pass the absolute spec path and ticket `#T`, and save to `$MAIN/.devflow/plans/<YYYY-MM-DD>-iss-N-t<T>-<slug>.md`. Plan against the **current** integration branch, since earlier tickets may have changed the code.
 2. **Approval:** unless the state file has `auto: true`, show the user the plan path and **end your turn and wait**. Apply any requested changes first. If the user says to go auto from here, set the `auto` fields as in `align`'s AUTO.md. In auto mode, approve the plan and log its path in the decision log.
 3. **Worktree:** cut it only after the fast batch has returned, so it starts from a tip that includes every merged fast ticket.
    ```bash

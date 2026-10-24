@@ -1,6 +1,6 @@
 # Run-state file
 
-Location: `<main checkout>/.claude/docs/runs/iss-<N>.json` (`pending-<slug>.json` until #N exists). Git-ignored. Update it at every stage change, and after each ticket finishes, so a compacted or restarted session can resume with `/<workflow> #N`.
+Location: `<main checkout>/.devflow/runs/iss-<N>.json` (`pending-<slug>.json` until #N exists). Git-ignored. Update it at every stage change, and after each ticket finishes, so a compacted or restarted session can resume with `/<workflow> #N`.
 
 ```json
 {
@@ -12,8 +12,8 @@ Location: `<main checkout>/.claude/docs/runs/iss-<N>.json` (`pending-<slug>.json
   "base_branch": "main",
   "branch": "feat/iss-42-ca-buffer-model",
   "worktree": "/abs/path/to/worktree",
-  "spec_path": "/abs/path/.claude/docs/specs/iss-42-ca-buffer-model.md",
-  "plan_paths": ["/abs/path/.claude/docs/plans/2026-10-17-iss-42-ca-buffer-model.md"],
+  "spec_path": "/abs/path/.devflow/specs/iss-42-ca-buffer-model.md",
+  "plan_paths": ["/abs/path/.devflow/plans/2026-10-17-iss-42-ca-buffer-model.md"],
   "baseline": {
     "command": "pytest -q",
     "passed": 118,

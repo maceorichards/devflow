@@ -35,7 +35,7 @@ Call the Skill tool with `align` (workflow `dev-single`, this mode, whether auto
 - `implement` ends with `spec-review`. Set `spec_review_ran: true` in the state file.
 
 **RIGOR (`--rigor`):**
-1. Call the Skill tool with `writing-plans`. Pass the absolute spec path, and the plan path `$MAIN/.claude/docs/plans/<YYYY-MM-DD>-iss-N-<slug>.md`. The execution method is already chosen: subagent-driven development.
+1. Call the Skill tool with `writing-plans`. Pass the absolute spec path, and the plan path `$MAIN/.devflow/plans/<YYYY-MM-DD>-iss-N-<slug>.md`. The execution method is already chosen: subagent-driven development.
 2. Show the user the plan path. **End your turn and wait for approval.** Apply any requested changes to the plan first. (Auto mode: approve it and log the plan path, as in `align`'s AUTO.md.)
 3. Call the Skill tool with `subagent-driven-development`. Pass the plan path and the working directory (the feature worktree). It runs a tester before each task, then the implementer, then the task review, and finally its whole-branch review.
 4. When it reaches its Finish step, it **returns here** rather than running `finishing-a-development-branch`.

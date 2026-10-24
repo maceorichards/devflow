@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-21 17:40:27
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:28:56
 @@ -32,30 +32,8 @@
  
  ## When to Use
@@ -50,7 +50,7 @@ diff -ruN a/SKILL.md b/SKILL.md
 +
 +Record BASE (`git rev-parse HEAD`) **before** this step, so the review package includes the acceptance tests.
 +
-+Run `bash scripts/task-brief PLAN_FILE N`, then dispatch a **tester subagent** using `~/.claude/skills/tdd/tester-brief.md`. Its brief is the task-brief path plus the spec path; exact test names, assertions, values and Interfaces come from the task text. The tester:
++Run `bash scripts/task-brief PLAN_FILE N`, then dispatch a **tester subagent** using `../tdd/tester-brief.md`. Its brief is the task-brief path plus the spec path; exact test names, assertions, values and Interfaces come from the task text. The tester:
 +- writes the interface stubs and acceptance tests,
 +- confirms they fail for the right reason,
 +- commits `test(<scope> task N): acceptance tests`,
@@ -128,8 +128,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  ## Common Rationalizations
  
 diff -ruN a/implementer-prompt.md b/implementer-prompt.md
---- a/implementer-prompt.md	2026-10-17 04:16:14
-+++ b/implementer-prompt.md	2026-10-21 17:39:57
+--- a/implementer-prompt.md	2026-10-23 22:25:56
++++ b/implementer-prompt.md	2026-10-23 22:28:56
 @@ -33,11 +33,14 @@
  
      Once you're clear on requirements:
@@ -169,8 +169,8 @@ diff -ruN a/implementer-prompt.md b/implementer-prompt.md
      If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
      itself — the controller acts on it directly.
 diff -ruN a/scripts/review-package b/scripts/review-package
---- a/scripts/review-package	2026-10-17 04:16:14
-+++ b/scripts/review-package	2026-10-21 17:39:57
+--- a/scripts/review-package	2026-10-23 22:25:56
++++ b/scripts/review-package	2026-10-23 22:28:56
 @@ -4,30 +4,37 @@
  # call. Using the recorded per-task BASE (not HEAD~1) keeps multi-commit
  # tasks intact.
@@ -252,8 +252,8 @@ diff -ruN a/scripts/review-package b/scripts/review-package
    git diff -U10 "${base}..${head}"
  } > "$out"
 diff -ruN a/scripts/task-brief b/scripts/task-brief
---- a/scripts/task-brief	2026-10-17 04:16:14
-+++ b/scripts/task-brief	2026-10-21 17:40:27
+--- a/scripts/task-brief	2026-10-23 22:25:56
++++ b/scripts/task-brief	2026-10-23 22:28:56
 @@ -3,6 +3,9 @@
  # implementer reads in one call, so the task text never has to be pasted
  # through the controller's context.

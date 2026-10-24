@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-17 04:16:14
-+++ b/SKILL.md	2026-10-21 17:40:44
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:28:54
 @@ -4,7 +4,7 @@
  disable-model-invocation: true
  ---
@@ -10,13 +10,12 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  Scaffold the per-repo configuration that the engineering skills assume:
  
-@@ -21,10 +21,11 @@
+@@ -21,10 +21,10 @@
  Look at the current repo to understand its starting state. Read whatever exists; don't assume:
  
  - `git remote -v` and `.git/config`: is this a GitHub repo? Which one?
 -- `AGENTS.md` and `CLAUDE.md` at the repo root: does either exist? Is there already an `## Agent skills` section in either?
 -- `GLOSSARY.md` and `GLOSSARY-MAP.md` at the repo root
-+- `CLAUDE.local.md`, `AGENTS.md` and `CLAUDE.md` at the repo root: does any exist? Is there already an `## Agent skills` section in one of them?
 +- `docs/GLOSSARY.md` (devflow layout), and `GLOSSARY.md` / `GLOSSARY-MAP.md` at the repo root
  - `docs/adr/` and any `src/*/docs/adr/` directories
  - `docs/agents/`: does this skill's prior output already exist?
@@ -24,7 +23,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  - `.scratch/`: a sign that a local-markdown issue tracker convention is already in use
  - Is the `triage` skill installed? (a `triage` skill folder alongside this one, or `triage` in your available skills.) This decides whether Section B runs at all.
  - Monorepo signals: a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. These are present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
-@@ -46,7 +47,7 @@
+@@ -46,7 +46,7 @@
  - **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
  - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
  
@@ -33,7 +32,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  **Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
  
-@@ -56,7 +57,7 @@
+@@ -56,7 +56,7 @@
  
  The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
  
@@ -42,12 +41,11 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  Offer **multi-context** (a root `GLOSSARY-MAP.md` pointing to per-context `GLOSSARY.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
  
-@@ -64,23 +65,20 @@
+@@ -64,43 +64,18 @@
  
  Show the user a draft of:
  
 -- The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
-+- The `## Agent skills` block to add to `CLAUDE.local.md` (see step 4)
  - The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
  
  Let them edit before writing.
@@ -55,34 +53,52 @@ diff -ruN a/SKILL.md b/SKILL.md
  ### 4. Write
  
 -**Pick the file to edit:**
-+**The file to edit (devflow): `CLAUDE.local.md` at the repo root.** It is a personal, git-ignored project memory file that Claude Code loads like `CLAUDE.md`, so the block never has to be committed. Create it if it doesn't exist.
++**Where the conventions go (devflow): `docs/agents/` in the main checkout.** It is git-ignored and works with any agent tool, so nothing is committed and no instructions file or `## Agent skills` block is written. Create the folder if it doesn't exist. Leave any existing `## Agent skills` block in the repo's instructions files alone and mention that devflow no longer reads it.
  
 -- If `CLAUDE.md` exists, edit it.
 -- Else if `AGENTS.md` exists, edit it.
 -- If neither exists, ask the user which one to create; don't pick for them.
-+- Check it's ignored: `git check-ignore -q CLAUDE.local.md`. devflow ignores it globally; if it isn't ignored, offer to add `CLAUDE.local.md` to the repo's `.gitignore`.
-+- If an `## Agent skills` block already exists in `CLAUDE.md` or `AGENTS.md`, ask whether to move it to `CLAUDE.local.md` (recommended) or leave it where it is. Never keep two copies.
-+- If an `## Agent skills` block already exists in `CLAUDE.local.md`, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
-+- `CLAUDE.local.md` and `docs/agents/` exist only in the main checkout. That's enough: devflow's orchestrating session always runs there and reads them from the main checkout.
++devflow's orchestrating session always runs in the main checkout and reads these files from there.
  
 -Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
--
++Write `docs/agents/triage-labels.md` only when `triage` is installed and Section B ran.
+ 
 -If an `## Agent skills` block already exists in the chosen file, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
 -
- The block:
+-The block:
+-
+-```markdown
+-## Agent skills
+-
+-### Issue tracker
+-
+-[one-line summary of where issues are tracked]. See `docs/agents/issue-tracker.md`.
+-
+-### Triage labels
+-
+-[one-line summary of the label vocabulary]. See `docs/agents/triage-labels.md`.
+-
+-### Domain docs
+-
+-[one-line summary of layout: "single-context" or "multi-context"]. See `docs/agents/domain.md`.
+-```
+-
+-Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
+-
+ When Section B ran on GitHub or GitLab, create each configured label the tracker lacks (`gh label create` / `glab label create`).
  
- ```markdown
-@@ -114,5 +112,7 @@
+ Then write the docs files using the seed templates in this skill folder as a starting point:
+@@ -114,5 +89,7 @@
  For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
  
  ### 5. Done
 +
-+Check that `docs/agents/` is ignored: `git check-ignore -q docs/agents/x`. devflow ignores `.claude/docs/` globally; if it isn't ignored, offer to add `.claude/docs/` to `.git/info/exclude`. Commit nothing: these files stay untracked in the main checkout, where devflow's orchestrating session reads them.
++Check that `docs/agents/` is ignored: `git check-ignore -q docs/agents/x`. devflow ignores `.devflow/` globally; if it isn't ignored, offer to add `.devflow/` to `.git/info/exclude`. Commit nothing: these files stay untracked in the main checkout, where devflow's orchestrating session reads them.
  
  Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
 diff -ruN a/domain.md b/domain.md
---- a/domain.md	2026-10-17 04:16:14
-+++ b/domain.md	2026-10-21 17:40:44
+--- a/domain.md	2026-10-23 22:25:56
++++ b/domain.md	2026-10-23 22:28:54
 @@ -4,11 +4,11 @@
  
  ## Before exploring, read these
@@ -120,8 +136,8 @@ diff -ruN a/domain.md b/domain.md
 -> _Contradicts ADR-0007 (event-sourced orders), but worth reopening because…_
 +> _Contradicts ADR iss-12-event-sourced-orders, but worth reopening because…_
 diff -ruN a/issue-tracker-github.md b/issue-tracker-github.md
---- a/issue-tracker-github.md	2026-10-17 04:16:14
-+++ b/issue-tracker-github.md	2026-10-21 17:39:57
+--- a/issue-tracker-github.md	2026-10-23 22:25:56
++++ b/issue-tracker-github.md	2026-10-23 22:28:54
 @@ -14,9 +14,15 @@
  
  Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.

@@ -36,7 +36,7 @@ Call the Skill tool with `align` (workflow `dev-multi`, this mode, whether auto 
 Call the Skill tool with `to-tickets`. Pass:
 - `#N` and the absolute spec path,
 - the lane pre-fill (`fast`, `rigor`, or none for per-ticket proposals),
-- the lane heuristics file: `~/.claude/skills/run-lanes/lane-heuristics.md`,
+- the lane heuristics file: `../run-lanes/lane-heuristics.md`,
 - in auto mode: "This is a devflow auto run; follow `align`'s AUTO.md at any pause." It then approves its own proposal (recommended lanes, overlaps resolved, splits serialised) and logs it.
 
 `to-tickets` proposes all of the following and gets **one approval** for the breakdown and lanes together:

@@ -1,12 +1,12 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 16:40:10
-+++ b/SKILL.md	2026-10-21 16:44:07
+--- a/SKILL.md	2026-10-23 22:25:56
++++ b/SKILL.md	2026-10-23 22:28:55
 @@ -14,7 +14,7 @@
  
  ### 1. Gather context
  
 -Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
-+Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments. For a devflow spec (`#N`), read the local spec file `<main checkout>/.claude/docs/specs/iss-N-*.md` first (it is authoritative; `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`), then the issue's comments.
++Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments. For a devflow spec (`#N`), read the local spec file `<main checkout>/.devflow/specs/iss-N-*.md` first (it is authoritative; `<main checkout>` is `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`), then the issue's comments.
  
  ### 2. Explore the codebase (optional)
  
@@ -18,7 +18,7 @@ diff -ruN a/SKILL.md b/SKILL.md
 +
 +- **Interfaces first.** When several tickets share new interfaces, the first ticket creates them: exact signatures as stubs that raise `NotImplementedError`, plus shared types. Later tickets are blocked by it, so parallel testers and implementers work against fixed interfaces without colliding. Its acceptance criteria must stay true after the later tickets land, so they pin only public import paths, names, signatures and shared types, never which private module holds an implementation. Never "raises `NotImplementedError`", which later tickets must break.
 +- **Footprint.** Give each ticket a module-level footprint: the modules or packages it will touch (not file paths or line numbers).
-+- **Lane.** Give each ticket a lane, `fast` or `rigor`, with a one-line reason, using the lane heuristics file the caller names (default `~/.claude/skills/run-lanes/lane-heuristics.md`). If the caller pre-fills a lane, use it for every ticket. The user can still change any lane.
++- **Lane.** Give each ticket a lane, `fast` or `rigor`, with a one-line reason, using the lane heuristics file the caller names (default `../run-lanes/lane-heuristics.md`). If the caller pre-fills a lane, use it for every ticket. The user can still change any lane.
 +- **Overlap check.** For every pair of tickets that could run at the same time (neither blocks the other, directly or transitively), compare footprints, **whatever their lanes**. If two `fast` tickets overlap, merge the tickets, add a blocking edge, or flag the pair for the user. For a `fast`/`rigor` pair, say "safe while run-lanes alternates the lanes; serialise if they ever run concurrently". Say what you did for each overlapping pair. (**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: merge or add a blocking edge, never flag.)
 +- **Structural splits.** If keeping tickets parallel would need a structural change the spec didn't ask for (for example, splitting one module into a package so footprints don't overlap), don't make it silently. Say so plainly in the proposal, and let the user choose "split" or "serialise". (**devflow auto run:** if the caller said this is a devflow auto run, follow `align`'s AUTO.md: serialise, and log it.)
 +
@@ -59,7 +59,7 @@ diff -ruN a/SKILL.md b/SKILL.md
 +
 +## Spec (devflow)
 +
-+`iss-N-<slug>.md` (local, in the main checkout's `.claude/docs/specs/`), parent #N
++`iss-N-<slug>.md` (local, in the main checkout's `.devflow/specs/`), parent #N
 +
 +## Lane (devflow)
 +
