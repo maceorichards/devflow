@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-23 22:25:56
-+++ b/SKILL.md	2026-10-23 22:28:56
+--- a/SKILL.md	2026-10-23 22:31:03
++++ b/SKILL.md	2026-10-23 22:32:22
 @@ -10,6 +10,12 @@
  
  The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes work.
@@ -39,7 +39,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
  
 -7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
-+7. Once all tickets are complete (not in sub-run mode), call the Skill tool with `spec-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
++7. Once all tickets are complete (not in sub-run mode), call the Skill tool with `spec-review` on the integration branch. Fix all issues raised by `spec-review` (Critical and Important) in a single **implementer subagent**.
  
  8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
  

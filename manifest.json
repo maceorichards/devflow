@@ -36,7 +36,7 @@
     {"name": "codebase-design", "source": "matt", "path": "skills/engineering/codebase-design", "tier": "sub",
      "description": "Vocabulary reference for deep modules, interfaces and seams. Use only when tdd or another skill calls for it, or the user asks for it by name."},
     {"name": "spec-review", "source": "matt", "path": "skills/engineering/code-review", "tier": "sub", "patch": "patches/spec-review.patch",
-     "description": "Two-axis diff review (repo standards + fit with the spec) using parallel subagents. Use when a devflow workflow or implement calls for it, or the user asks to review a branch against its spec."},
+     "description": "Three-axis diff review (repo standards, fit with the spec, correctness) using parallel subagents. Use when a devflow workflow or implement calls for it, or the user asks to review a branch against its spec."},
     {"name": "diagnosing-bugs", "source": "matt", "path": "skills/engineering/diagnosing-bugs", "tier": "auto"},
     {"name": "research", "source": "matt", "path": "skills/engineering/research", "tier": "auto"},
     {"name": "pr", "source": "matt", "path": "skills/engineering/pr", "tier": "auto"},

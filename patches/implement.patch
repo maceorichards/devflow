@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-23 22:25:56
-+++ b/SKILL.md	2026-10-23 22:28:55
+--- a/SKILL.md	2026-10-23 22:31:03
++++ b/SKILL.md	2026-10-23 22:32:10
 @@ -8,10 +8,12 @@
  
  If the user passes a ticket reference, fetch it from the issue tracker and state its title before starting. If the reference is ambiguous, ask.

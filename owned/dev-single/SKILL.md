@@ -48,9 +48,8 @@ Set stage `built`.
 Let `BASE=$(git -C "$WT" merge-base origin/<base> HEAD)`, where `$WT` is the feature worktree.
 
 1. If the state file's `spec_review_ran` is `false` (RIGOR mode), call the Skill tool with `spec-review`. Use fixed point `BASE` and the absolute spec path. Then set it to `true`.
-2. Call the Skill tool with the built-in `code-review` (correctness bugs) on the branch diff against `BASE`.
-3. If the reviews found Critical or Important issues, dispatch **one** fix subagent with the spec path and the complete findings list, except any that target acceptance tests: those go under `## Follow-ups` as rulings for the user and don't count as remaining below. Minor findings go into the PR description under "Follow-ups". (Auto mode: if Critical or Important findings remain after that one fix, finish as a draft PR, as in `align`'s AUTO.md.)
-4. Call the Skill tool with `verification-before-completion`: full suite, every failure by name, compared with the baseline in the state file.
+2. If the `spec-review` run on the branch (step 1, or the one `implement` ran when `spec_review_ran` was already `true`) found Critical or Important issues on any axis, dispatch **one** fix subagent with the spec path and those findings, except any that target acceptance tests: those go under `## Follow-ups` as rulings for the user and don't count as remaining below. Minor findings go into the PR description under "Follow-ups". (Auto mode: if Critical or Important findings remain after that one fix, finish as a draft PR, as in `align`'s AUTO.md.)
+3. Call the Skill tool with `verification-before-completion`: full suite, every failure by name, compared with the baseline in the state file.
 
 ## 5. Finish (stage `finished`)
 

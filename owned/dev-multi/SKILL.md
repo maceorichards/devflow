@@ -63,9 +63,8 @@ If any tickets are `needs-human`, show them to the user and ask whether to finis
 Let `BASE=$(git -C "$WT" merge-base origin/<base> HEAD)`, where `$WT` is the integration worktree.
 
 1. Call the Skill tool with `spec-review`, using fixed point `BASE` and the absolute spec path. Set `spec_review_ran: true` in the state file.
-2. Call the Skill tool with the built-in `code-review` on the same range.
-3. Dispatch **one** fix subagent, in the integration worktree, with all Critical and Important findings, except any that target acceptance tests: those go under `## Follow-ups` as rulings for the user and don't count as remaining in step 6. Minor findings go into the PR description under "Follow-ups".
-4. Call the Skill tool with `verification-before-completion`: full suite, every failure by name, compared with the baseline.
+2. Dispatch **one** fix subagent, in the integration worktree, with all Critical and Important findings from that `spec-review` run, except any that target acceptance tests: those go under `## Follow-ups` as rulings for the user and don't count as remaining in step 6. Minor findings go into the PR description under "Follow-ups".
+3. Call the Skill tool with `verification-before-completion`: full suite, every failure by name, compared with the baseline.
 
 ## 6. Finish (stage `finished`)
 

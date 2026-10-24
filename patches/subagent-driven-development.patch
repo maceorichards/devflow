@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-23 22:25:56
-+++ b/SKILL.md	2026-10-23 22:28:56
+--- a/SKILL.md	2026-10-23 22:31:03
++++ b/SKILL.md	2026-10-23 22:32:22
 @@ -32,30 +32,8 @@
  
  ## When to Use
@@ -106,7 +106,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  
  ## Final Review
  
-+**devflow callers skip this section.** When `/dev-single` or `run-lanes` invoked you, don't dispatch the final whole-branch review: the caller's final review (`spec-review` + `code-review` over the whole feature, with one fix pass) covers the same ground, and running both reviews the same code twice. Go straight to Finish, and add every deferred-minor and parked line from the ledger under "Deferred minors" next to "Rulings I made", so the caller's review triages them.
++**devflow callers skip this section.** When `/dev-single` or `run-lanes` invoked you, don't dispatch the final whole-branch review: the caller's final review (`spec-review`, with its Correctness axis, over the whole feature, with one fix pass) covers the same ground, and running both reviews the same code twice. Go straight to Finish, and add every deferred-minor and parked line from the ledger under "Deferred minors" next to "Rulings I made", so the caller's review triages them.
 +
  The final whole-branch review gets a package too: run
  `bash scripts/review-package PLAN_FILE MERGE_BASE HEAD` (MERGE_BASE = the commit the
@@ -128,8 +128,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  ## Common Rationalizations
  
 diff -ruN a/implementer-prompt.md b/implementer-prompt.md
---- a/implementer-prompt.md	2026-10-23 22:25:56
-+++ b/implementer-prompt.md	2026-10-23 22:28:56
+--- a/implementer-prompt.md	2026-10-23 22:31:03
++++ b/implementer-prompt.md	2026-10-23 22:32:10
 @@ -33,11 +33,14 @@
  
      Once you're clear on requirements:
@@ -169,8 +169,8 @@ diff -ruN a/implementer-prompt.md b/implementer-prompt.md
      If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
      itself — the controller acts on it directly.
 diff -ruN a/scripts/review-package b/scripts/review-package
---- a/scripts/review-package	2026-10-23 22:25:56
-+++ b/scripts/review-package	2026-10-23 22:28:56
+--- a/scripts/review-package	2026-10-23 22:31:03
++++ b/scripts/review-package	2026-10-23 22:32:10
 @@ -4,30 +4,37 @@
  # call. Using the recorded per-task BASE (not HEAD~1) keeps multi-commit
  # tasks intact.
@@ -252,8 +252,8 @@ diff -ruN a/scripts/review-package b/scripts/review-package
    git diff -U10 "${base}..${head}"
  } > "$out"
 diff -ruN a/scripts/task-brief b/scripts/task-brief
---- a/scripts/task-brief	2026-10-23 22:25:56
-+++ b/scripts/task-brief	2026-10-23 22:28:56
+--- a/scripts/task-brief	2026-10-23 22:31:03
++++ b/scripts/task-brief	2026-10-23 22:32:10
 @@ -3,6 +3,9 @@
  # implementer reads in one call, so the task text never has to be pasted
  # through the controller's context.
