@@ -92,5 +92,123 @@ class DefaultProviderTest(unittest.TestCase):
             self.assertIn(line, lines)
 
 
+class SelectionTest(unittest.TestCase):
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+
+    def p(self, tilde):
+        return self.sb.home_path(tilde)
+
+    def stdout_lines(self, r):
+        return [l.strip() for l in r.stdout.splitlines()]
+
+    # #23, user stories 2, 3: codex alongside claude
+    def test_claude_codex_installs_both(self):
+        sb = self.sb
+        sb.write_local(["claude", "codex"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        names = sb.manifest_skill_names()
+        self.assertEqual(sb.managed_skills("~/.claude/skills"), names)
+        self.assertEqual(sb.managed_skills("~/.agents/skills"), names)
+        self.assertIn(START, read(self.p("~/.claude/CLAUDE.md")))
+        self.assertIn(START, read(self.p("~/.codex/AGENTS.md")))
+        self.assertFalse(os.path.exists(self.p("~/.gemini/GEMINI.md")))
+
+    # #23, user stories 4, 8: codex and gemini share one folder
+    def test_codex_gemini_share_one_copy(self):
+        sb = self.sb
+        sb.write_local(["codex", "gemini"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sb.managed_skills("~/.agents/skills"), sb.manifest_skill_names())
+        for entry in os.listdir(self.p("~/.agents/skills")):
+            self.assertFalse(entry.endswith(".devflow-new") or entry.endswith(".devflow-old"), entry)
+        self.assertIn(START, read(self.p("~/.codex/AGENTS.md")))
+        self.assertIn(START, read(self.p("~/.gemini/GEMINI.md")))
+        self.assertFalse(os.path.exists(self.p("~/.claude/skills")))
+        self.assertFalse(os.path.exists(self.p("~/.claude/CLAUDE.md")))
+        self.assertEqual(self.stdout_lines(r).count("~/.agents/skills"), 1, r.stdout)
+
+    # #23, user stories 6, 7: cursor skips its own copy when claude covers it
+    def test_claude_cursor_skips_agents_folder(self):
+        sb = self.sb
+        sb.write_local(["claude", "cursor"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(self.p("~/.agents/skills")))
+        self.assertEqual(sb.managed_skills("~/.claude/skills"), sb.manifest_skill_names())
+        self.assertIn("Customize \u2192 Rules", r.stdout)
+
+    # #23, user stories 5, 6: cursor alone
+    def test_cursor_alone_installs_agents_folder(self):
+        sb = self.sb
+        sb.write_local(["cursor"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sb.managed_skills("~/.agents/skills"), sb.manifest_skill_names())
+        self.assertIn("Customize \u2192 Rules", r.stdout)
+        self.assertFalse(os.path.exists(self.p("~/.claude/CLAUDE.md")))
+
+    # #23, user story 7: codex does not install into a folder cursor reads
+    def test_codex_cursor_installs_agents_folder(self):
+        sb = self.sb
+        sb.write_local(["codex", "cursor"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sb.managed_skills("~/.agents/skills"), sb.manifest_skill_names())
+
+    # #23, user story 3: user text around the section survives
+    def test_existing_agents_md_section_replaced_in_place(self):
+        sb = self.sb
+        agents = self.p("~/.codex/AGENTS.md")
+        write(agents, "before\n<!-- devflow:start x -->\nstale\n<!-- devflow:end -->\nafter\n")
+        sb.write_local(["codex"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        out = read(agents)
+        self.assertTrue(out.startswith("before\n"), out)
+        self.assertTrue(out.endswith("\nafter\n"), out)
+        self.assertNotIn("stale", out)
+        self.assertEqual(out.count(START), 1, out)
+
+    # #23, user story 11: a bad local file never falls back, never writes
+    def test_bad_local_file_rejected_and_nothing_written(self):
+        cases = [
+            ("unknown", ["claude", "cdx"], None),
+            ("empty", [], None),
+            ("malformed", None, "{not json"),
+            ("non-list", None, "{\"providers\": \"claude\"}"),
+        ]
+        for label, providers, raw in cases:
+            with self.subTest(label):
+                with SyncSandbox() as sb:
+                    if raw is None:
+                        sb.write_local(providers)
+                    else:
+                        with open(sb.local_file, "w") as f:
+                            f.write(raw)
+                    r = sb.run()
+                    self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+                    self.assertEqual(os.listdir(sb.home_path("~")), [], r.stdout + r.stderr)
+                    if label == "unknown":
+                        self.assertIn("unknown provider: cdx", r.stderr)
+
+    # #23, user story 15: dry run reports per provider and writes nothing
+    def test_dry_run_writes_nothing(self):
+        sb = self.sb
+        sb.write_local(["claude", "codex"])
+        r = sb.run("--dry-run")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(os.listdir(sb.home_path("~")), [])
+        self.assertIn("(dry run)", r.stdout)
+        lines = self.stdout_lines(r)
+        self.assertIn("~/.claude/skills", lines)
+        self.assertIn("~/.agents/skills", lines)
+        self.assertIn("would install", r.stdout)
+        self.assertIn("would update ~/.codex/AGENTS.md devflow section", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
