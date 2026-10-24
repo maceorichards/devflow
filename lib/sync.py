@@ -17,6 +17,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,28 @@ def ensure_vendor(man, src, sha=None):
             sh(["git", "fetch", "-q", "origin"], cwd=d, check=False)
             sh(["git", "checkout", "-q", sha], cwd=d)
     return sh(["git", "rev-parse", "HEAD"], cwd=d).stdout.strip()
+
+
+def write_atomic(path, text, newline=None):
+    """Write via a temp file in the same folder + os.replace, so a crash never leaves half a
+    file. A symlink keeps pointing where it did: the file it points to is replaced."""
+    path = os.path.realpath(path)
+    try:
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        umask = os.umask(0)
+        os.umask(umask)
+        mode = 0o666 & ~umask
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=f".{os.path.basename(path)}.")
+    try:
+        with os.fdopen(fd, "w", newline=newline) as f:
+            f.write(text)
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
 
 
 # --------------------------------------------------------------------- frontmatter
@@ -204,19 +227,23 @@ def managed_dirs(man, root):
             and os.path.exists(os.path.join(root, d, man["marker"]))]
 
 
-def prune(man, dest_root, dry):
+def remove_managed(root, d, why, dry, failures):
+    if not dry:
+        try:
+            shutil.rmtree(os.path.join(root, d))
+        except OSError as e:
+            failures.append((d, f"could not remove: {e}"))
+            return f"FAIL      {d}: could not remove: {e}"
+    return f"{'would remove' if dry else 'removed'} {d} ({why})"
+
+
+def prune(man, dest_root, dry, failures):
     names = {s["name"] for s in man["skills"]}
-    out = []
-    for d in managed_dirs(man, dest_root):
-        if d not in names:
-            if not dry:
-                shutil.rmtree(os.path.join(dest_root, d))
-            out.append(f"{'would remove' if dry else 'removed'} {d} (no longer in manifest)")
-    return out
+    return [remove_managed(dest_root, d, "no longer in manifest", dry, failures)
+            for d in managed_dirs(man, dest_root) if d not in names]
 
 
-def cleanup_dirs(man, selected):
-    keep = install_dirs(man, selected)
+def cleanup_dirs(man, keep):
     out = []
     for p in man["providers"]:
         if p["skills_dir"] not in keep and p["skills_dir"] not in out:
@@ -232,26 +259,22 @@ def folder_id(path):
     return (st.st_dev, st.st_ino)
 
 
-def cleanup(man, tilde_dir, install_ids, dry):
+def cleanup(man, tilde_dir, install_ids, dry, failures):
     root = os.path.expanduser(tilde_dir)
     if folder_id(root) in install_ids:
         return ["SKIP (same folder as an install folder)"]
-    out = []
-    for d in managed_dirs(man, root):
-        if not dry:
-            shutil.rmtree(os.path.join(root, d))
-        out.append(f"{'would remove' if dry else 'removed'} {d} (provider not selected)")
-    return out
+    return [remove_managed(root, d, "provider not selected", dry, failures)
+            for d in managed_dirs(man, root)]
 
 
 # --------------------------------------------------------------------- global config
 def section_bounds(cur):
-    """(a, b) for exactly one well-ordered section, None for no markers, "malformed" otherwise."""
+    """(a, b) for exactly one well-ordered section, None for no markers; ValueError otherwise."""
     starts, ends = cur.count(MD_START), cur.count(MD_END)
     if not starts and not ends:
         return None
     if starts != 1 or ends != 1 or cur.index(MD_END) < cur.index(MD_START):
-        return "malformed"
+        raise ValueError("malformed devflow markers")
     return cur.index(MD_START), cur.index(MD_END) + len(MD_END)
 
 
@@ -274,8 +297,9 @@ def sync_instructions(tilde_path, dry):
                 cur = f.read()
         except (UnicodeDecodeError, OSError):
             return unreadable_skip(tilde_path)
-    bounds = section_bounds(cur)
-    if bounds == "malformed":
+    try:
+        bounds = section_bounds(cur)
+    except ValueError:
         return markers_skip(tilde_path)
     if bounds:
         a, b = bounds
@@ -286,8 +310,7 @@ def sync_instructions(tilde_path, dry):
         return f"{tilde_path} devflow section unchanged"
     if not dry:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", newline="") as f:
-            f.write(new)
+        write_atomic(path, new, newline="")
     return f"{'would update' if dry else 'updated'} {tilde_path} devflow section"
 
 
@@ -300,21 +323,21 @@ def remove_instructions(tilde_path, dry):
             cur = f.read()
     except (UnicodeDecodeError, OSError):
         return unreadable_skip(tilde_path)
-    bounds = section_bounds(cur)
+    try:
+        bounds = section_bounds(cur)
+    except ValueError:
+        return markers_skip(tilde_path)
     if bounds is None:
         return None
-    if bounds == "malformed":
-        return markers_skip(tilde_path)
     a, b = bounds
-    if cur[b:b + 1] == "\n":
-        b += 1
-    if not cur[b:]:
+    if not cur[b:].strip():
         new = cur[:a].rstrip("\n") + "\n" if cur[:a].strip() else ""
     else:
+        if cur[b:b + 1] == "\n":
+            b += 1
         new = cur[:a] + cur[b:]
     if not dry:
-        with open(path, "w", newline="") as f:
-            f.write(new)
+        write_atomic(path, new, newline="")
     return f"{'would remove' if dry else 'removed'} {tilde_path} devflow section"
 
 
@@ -357,7 +380,7 @@ def selected_providers(man):
     try:
         with open(LOCAL) as f:
             names = json.load(f)["providers"]
-    except (ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError):
         names = None
     if not isinstance(names, list):
         sys.exit('devflow.local.json: expected {"providers": [...]}')
@@ -401,46 +424,48 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
             for skill, stage in built:
                 status = install(man, skill, stage, lock, dry, os.path.expanduser(d))
                 print(f"  {status:<10} {skill['name']}  [{skill['tier']}]")
-            for line in prune(man, os.path.expanduser(d), dry):
+            for line in prune(man, os.path.expanduser(d), dry, failures):
                 print("  " + line)
     finally:
         shutil.rmtree(stage_root, ignore_errors=True)
     install_ids = {folder_id(os.path.expanduser(d)) for d in dirs} - {None}
-    for d in cleanup_dirs(man, selected):
-        lines = cleanup(man, d, install_ids, dry)
+    for d in cleanup_dirs(man, dirs):
+        lines = cleanup(man, d, install_ids, dry, failures)
         if lines:
             print(d)
             for line in lines:
                 print("  " + line)
     print("instructions")
-    kept = {}
+    mine = [p["instructions"] for p in man["providers"] if p["name"] in selected and p["instructions"]]
     for p in man["providers"]:
-        if p["name"] in selected and p["instructions"]:
-            print("  " + sync_instructions(p["instructions"], dry))
-            kept.setdefault(folder_id(os.path.expanduser(p["instructions"])), p["instructions"])
-    kept.pop(None, None)
-    for p in man["providers"]:
-        if p["name"] not in selected and p["instructions"]:
-            same = kept.get(folder_id(os.path.expanduser(p["instructions"])))
+        f = p["instructions"]
+        if not f:
+            continue
+        if p["name"] in selected:
+            status = sync_instructions(f, dry)
+        else:
+            # never strip a file that is (a link to) a selected provider's file
+            fid = folder_id(os.path.expanduser(f))
+            same = next((m for m in mine if fid and folder_id(os.path.expanduser(m)) == fid), None)
             if same:
-                status = f"SKIP {p['instructions']}: same file as {same}, left untouched"
+                status = f"SKIP {f}: same file as {same}, left untouched"
             else:
-                status = remove_instructions(p["instructions"], dry)
-            if status:
-                print("  " + status)
+                status = remove_instructions(f, dry)
+        if status:
+            print("  " + status)
     print("  " + sync_git_ignore(dry))
-    if "cursor" in selected:
-        print("note: Cursor keeps its rules in its settings: paste global/claude-md-section.md into Customize → Rules.")
+    for p in man["providers"]:
+        if p["name"] in selected and not p["instructions"]:
+            print(f"note: {p['name']} reads no instructions file: paste global/claude-md-section.md "
+                  "into its rules settings (Cursor: Customize → Rules).")
     return failures
 
 
 def set_providers(man, lock, csv, dry):
     names = validate_providers(man, [n.strip() for n in csv.split(",") if n.strip()])
-    print("devflow sync" + (" (dry run)" if dry else ""))
     if dry:
         return apply_all(man, lock, dry=True, selected=names)
-    with open(LOCAL, "w") as f:
-        f.write(json.dumps({"providers": names}, indent=2) + "\n")
+    write_atomic(LOCAL, json.dumps({"providers": names}, indent=2) + "\n")
     fails = apply_all(man, lock, selected=names)
     save_lock(lock)
     return fails
@@ -537,16 +562,17 @@ def main(argv):
         return edit(man, lock, argv[1])
     if argv[:1] == ["save"] and len(argv) == 2:
         return save(man, argv[1])
-    if argv[:1] == ["providers"] and len(argv) in (2, 3) and argv[2:] in ([], ["--dry-run"]):
-        fails = set_providers(man, lock, argv[1], argv[2:] == ["--dry-run"])
-    elif argv == ["--update"]:
+    dry = argv[-1:] == ["--dry-run"]
+    if argv == ["--update"]:
         fails = update(man, lock)
-    elif argv in ([], ["--dry-run"]):
-        dry = argv == ["--dry-run"]
+    elif argv in ([], ["--dry-run"]) or (argv[:1] == ["providers"] and len(argv) == 2 + dry):
         print("devflow sync" + (" (dry run)" if dry else ""))
-        fails = apply_all(man, lock, dry=dry)
-        if not dry:
-            save_lock(lock)
+        if argv[:1] == ["providers"]:
+            fails = set_providers(man, lock, argv[1], dry)
+        else:
+            fails = apply_all(man, lock, dry=dry)
+            if not dry:
+                save_lock(lock)
     else:
         sys.exit(__doc__)
     if fails:

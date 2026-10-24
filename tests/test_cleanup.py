@@ -93,6 +93,7 @@ class SkillCleanupTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(sb.managed_skills("~/.claude/skills"), sb.manifest_skill_names())
         self.assertIn("SKIP (same folder as an install folder)", r.stdout)
+        self.assertTrue(os.path.islink(sb.home_path("~/.agents/skills")))
 
     def test_symlinked_skill_folder_is_never_followed(self):
         # Review Focus 2: a symlinked skill folder is never followed or deleted
