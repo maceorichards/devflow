@@ -14,7 +14,11 @@ _FILES = ("manifest.json", "vendor.lock", "sync.sh")
 
 def check_vendors(root):
     """Skip unless every vendor clone exists at its locked commit: the sandbox links the
-    real clones, so a sync must never need to fetch or check out in them."""
+    real clones, so a sync must never need to fetch or check out in them. With
+    DEVFLOW_REQUIRE_VENDORS=1 (CI), fail instead, so a run can't pass by skipping."""
+    fail = unittest.SkipTest
+    if os.environ.get("DEVFLOW_REQUIRE_VENDORS") == "1":
+        fail = AssertionError
     with open(os.path.join(root, "manifest.json")) as f:
         vendors = json.load(f)["vendors"]
     with open(os.path.join(root, "vendor.lock")) as f:
@@ -22,12 +26,12 @@ def check_vendors(root):
     for src, v in vendors.items():
         d = os.path.join(root, v["dir"])
         if not os.path.exists(os.path.join(d, ".git")):
-            raise unittest.SkipTest(
+            raise fail(
                 "vendor clones missing: run ./sync.sh once in the devflow repo first")
         head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=d,
                               capture_output=True, text=True).stdout.strip()
         if head != lock.get(src):
-            raise unittest.SkipTest(
+            raise fail(
                 f"{v['dir']} is at {head[:8] or '?'}, not {str(lock.get(src))[:8]} from vendor.lock: "
                 "run ./sync.sh in the devflow repo first")
 

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }}, python ${{ matrix.python || 'default' }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.9"
+          - os: ubuntu-latest
+            python: "3.x"
+          - os: macos-latest  # its default python3, no setup-python
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python3 --version
+      - name: Clone vendors at the locked commits (installs nothing)
+        run: ./sync.sh --dry-run
+      - name: Tests
+        run: python3 -m unittest
+        env:
+          DEVFLOW_REQUIRE_VENDORS: "1"
+
+  fresh-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dry run
+        run: ./sync.sh --dry-run
+      - name: Sync
+        run: ./sync.sh
+      - name: Every manifest skill is installed and managed
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          man = json.load(open("manifest.json"))
+          root = os.path.expanduser("~/.claude/skills")
+          missing = [s["name"] for s in man["skills"]
+                     if not os.path.isfile(os.path.join(root, s["name"], man["marker"]))]
+          if missing:
+              sys.exit("not installed with a %s marker in %s: %s" % (man["marker"], root, ", ".join(missing)))
+          print("%d managed skills in %s" % (len(man["skills"]), root))
+          PY
+      - name: Re-sync and dry run report no change
+        # Every status that changes something (or would) starts its line with one of these words.
+        run: |
+          for args in "" "--dry-run"; do
+            out=$(./sync.sh $args)
+            echo "$out"
+            if grep -E '^[[:space:]]*(installed|updated|removed|added|would|FAIL|WARN|SKIP)([[:space:]]|$)' <<<"$out"; then
+              echo "::error::./sync.sh $args reported a change after a full sync"
+              exit 1
+            fi
+          done
+      - name: Tests
+        run: python3 -m unittest
+        env:
+          DEVFLOW_REQUIRE_VENDORS: "1"

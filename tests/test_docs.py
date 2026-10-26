@@ -135,3 +135,139 @@ class LicenseTest(unittest.TestCase):
         for s in ("patches", "tdd"):
             with self.subTest(s=s):
                 self.assertIn(s, text)
+
+
+def named_section(text, title):
+    """Text from '## <title>' to the next '## ' heading ('' if absent)."""
+    m = re.search(r"^## %s\s*$.*?(?=^## |\Z)" % re.escape(title), text, re.M | re.S)
+    return m.group(0) if m else ""
+
+
+def paragraphs(text):
+    return re.split(r"\n\s*\n|\n(?=\s*[-*] )", text)
+
+
+class ReadmeFirstRunTest(unittest.TestCase):
+    """#39 (#34 user stories 22-31): the README opens with public framing and a quickstart."""
+
+    def quickstart(self):
+        return named_section(read("README.md"), "Quickstart")
+
+    def test_intro_says_opinionated(self):
+        intro = read("README.md").split("\n## ", 1)[0].lower()
+        self.assertIn("opinionated", intro)
+
+    def test_intro_says_fork(self):
+        intro = read("README.md").split("\n## ", 1)[0].lower()
+        self.assertIn("fork", intro)
+
+    def test_quickstart_section_exists(self):
+        self.assertTrue(self.quickstart(), "no '## Quickstart' section")
+
+    def test_quickstart_comes_before_workflows(self):
+        readme = read("README.md")
+        self.assertIn("## Quickstart", readme)
+        self.assertLess(readme.find("## Quickstart"), readme.find("## Workflows"))
+
+    def test_quickstart_names_prerequisites(self):
+        qs = self.quickstart()
+        for s in ("Python 3.9", "git", "GitHub"):
+            with self.subTest(s=s):
+                self.assertIn(s, qs)
+
+    def test_quickstart_names_gh_as_a_word(self):
+        self.assertRegex(self.quickstart(), r"\bgh\b")
+
+    def test_quickstart_steps_in_order(self):
+        qs = self.quickstart()
+        clone = qs.find("git clone")
+        dry = qs.find("./sync.sh --dry-run")
+        bare = re.search(r"^[ \t`$>]*\./sync\.sh[ \t`]*$", qs[max(dry, 0):], re.M) if dry >= 0 else None
+        setup = qs.find("/setup-devflow-skills")
+        self.assertTrue(0 <= clone < dry, "git clone must come before ./sync.sh --dry-run")
+        self.assertTrue(bare, "no bare ./sync.sh line after the dry run")
+        self.assertLess(dry + bare.start(), setup)
+
+    def test_quickstart_names_files_the_sync_edits(self):
+        qs = self.quickstart().lower()
+        for s in ("skills folder", "instructions file", "ignore"):
+            with self.subTest(s=s):
+                self.assertIn(s, qs)
+
+    def test_quickstart_says_system_excludes_file_is_not_consulted(self):
+        paras = paragraphs(self.quickstart())
+        self.assertTrue(
+            any("core.excludesFile" in p and "system" in p for p in paras),
+            "no paragraph or list item has core.excludesFile with 'system'")
+
+    def test_readme_tells_users_to_fork_and_edit_manifest(self):
+        # characterization: passes today (an existing paragraph already says both); must survive #39
+        paras = re.split(r"\n\s*\n", read("README.md"))
+        self.assertTrue(any("fork" in p.lower() and "manifest.json" in p for p in paras),
+                        "no paragraph has fork with manifest.json")
+
+    def test_contributing_section_exists(self):
+        self.assertTrue(named_section(read("README.md"), "Contributing"), "no '## Contributing' section")
+
+    def test_contributing_links_agents_md(self):
+        self.assertIn("](AGENTS.md)", named_section(read("README.md"), "Contributing"))
+
+    def test_contributing_links_smoke_readme(self):
+        self.assertIn("](smoke/README.md)", named_section(read("README.md"), "Contributing"))
+
+    def test_reference_sections_kept(self):
+        # characterization: these sections exist before #39 and must survive it
+        readme = read("README.md")
+        for h in ("Workflows", "Providers", "Tiers", "Repo layout", "Commands"):
+            with self.subTest(h=h):
+                self.assertTrue(named_section(readme, h), "missing '## %s'" % h)
+
+
+class CiWorkflowTest(unittest.TestCase):
+    """#39 (#34 user stories 22-31): CI runs the unit tests and a fresh install."""
+
+    def ci(self):
+        path = os.path.join(ROOT, ".github", "workflows", "ci.yml")
+        return open(path).read() if os.path.exists(path) else ""
+
+    def test_workflow_file_exists(self):
+        self.assertTrue(os.path.isfile(os.path.join(ROOT, ".github", "workflows", "ci.yml")))
+
+    def test_triggers_on_pull_request(self):
+        self.assertIn("pull_request", self.ci())
+
+    def test_triggers_on_push(self):
+        self.assertRegex(self.ci(), r"(?m)^\s*push\s*:")
+
+    def test_push_branches_are_develop_and_main(self):
+        m = re.search(r"(?ms)^\s*push\s*:.*?branches\s*:(.*?)(?=^\S|^\s*\w+\s*:\s*$|\Z)", self.ci())
+        block = m.group(1) if m else ""
+        for b in ("develop", "main"):
+            with self.subTest(branch=b):
+                self.assertIn(b, block)
+
+    def test_has_unit_job(self):
+        self.assertRegex(self.ci(), r"(?m)^  unit:")
+
+    def test_has_fresh_install_job(self):
+        self.assertRegex(self.ci(), r"(?m)^  fresh-install:")
+
+    def test_matrix_covers_ubuntu_and_macos(self):
+        ci = self.ci()
+        for s in ("ubuntu-latest", "macos-latest"):
+            with self.subTest(s=s):
+                self.assertIn(s, ci)
+
+    def test_matrix_covers_python_3_9_and_3_x(self):
+        ci = self.ci()
+        self.assertRegex(ci, r"""['"]?3\.9['"]?""")
+        self.assertRegex(ci, r"""['"]3\.x['"]|\b3\.x\b""")
+
+    def test_requires_vendors(self):
+        self.assertRegex(self.ci(), r"DEVFLOW_REQUIRE_VENDORS\s*:\s*['\"]?1['\"]?")
+
+    def test_runs_sync_dry_run(self):
+        self.assertIn("./sync.sh --dry-run", self.ci())
+
+    def test_runs_unittest(self):
+        self.assertIn("python3 -m unittest", self.ci())

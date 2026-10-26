@@ -1,6 +1,26 @@
 # devflow
 
-My agent skills and workflows, for Claude Code, Codex, Gemini CLI or Cursor. **[SKILLS.md](SKILLS.md) is the current overview** of every skill, the workflow mechanics and the naming conventions. Handpicked skills from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills), plus my patches and my own skills, built into the skills folders of the providers you pick (Claude Code by default) so every project sees them. [DESIGN.md](DESIGN.md) records why it's built this way.
+An opinionated set of agent skills and workflows for Claude Code, Codex, Gemini CLI or Cursor: handpicked skills from [obra/superpowers](https://github.com/obra/superpowers) and [mattpocock/skills](https://github.com/mattpocock/skills), patches to some of them, and devflow's own skills, built into the skills folders of the providers you pick (Claude Code by default) so every project sees them. **[SKILLS.md](SKILLS.md) is the current overview** of every skill, the workflow mechanics and the naming conventions. [DESIGN.md](DESIGN.md) records why it's built this way.
+
+Use it as is, or fork it to choose your own skills: edit `manifest.json`, then run `./sync.sh`.
+
+## Quickstart
+
+**Prerequisites:** Python 3.9+, git, the GitHub CLI `gh` signed in (`gh auth login`), and one supported provider (see [Providers](#providers)). GitHub is the only tracker the workflows support.
+
+```bash
+git clone https://github.com/maceorichards/devflow.git
+cd devflow
+./sync.sh --dry-run
+./sync.sh
+```
+
+The dry run clones the upstream skill repos into `vendor/` at the locked commits and shows what would change, writing nothing outside the clone. The second command builds and installs for Claude Code; to pick other providers, run `./sync.sh providers <list>` instead. Then, in each project, run `/setup-devflow-skills` once (see [Workflows](#workflows)).
+
+What the sync edits outside the clone:
+- Each selected provider's skills folder (e.g. `~/.claude/skills`): only folders it marks with `.managed-by-devflow`. A folder of the same name without the marker is skipped.
+- The devflow section of each provider's instructions file (e.g. `~/.claude/CLAUDE.md`), between `devflow` markers. The rest of the file is left alone.
+- The git ignore file git reads, to which it appends the lines in `global/git-ignore-lines` (`.devflow/`, `.worktrees/`, …): the global `core.excludesFile`, else `$XDG_CONFIG_HOME/git/ignore`, else `~/.config/git/ignore`. A system-level `core.excludesFile` is not consulted.
 
 ## Workflows
 
@@ -59,7 +79,7 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 | `devflow.local.json` | Which providers this machine installs to (git-ignored; written by `./sync.sh providers`) |
 | `vendor.lock` | The upstream commits the patches were last applied against (written by `sync.sh`) |
 | `patches/` | Diffs against upstream skills |
-| `owned/` | My skills. Never synced from upstream. `tdd` was forked once from Matt's (see `owned/tdd/ORIGIN.md`). |
+| `owned/` | devflow's own skills. Never synced from upstream. `tdd` was forked once from Matt Pocock's (see `owned/tdd/ORIGIN.md`). |
 | `global/` | The devflow section for providers' instructions files (between `devflow` markers) and the global git ignore lines |
 | `tests/` | The `python3 -m unittest` suite for `sync.sh` and the docs |
 | `vendor/` | Git-ignored upstream clones |
@@ -84,3 +104,7 @@ python3 -m unittest    # run the test suite
 **Adding a skill:** add an entry to `manifest.json`, then run `./sync.sh`. **Removing one:** delete its entry; `./sync.sh` removes the installed copy.
 
 **Never edit an installed `<skills folder>/<name>/` directly.** It's generated, and the next sync overwrites it.
+
+## Contributing
+
+Agents (and people) working on devflow itself, or on a fork, follow [AGENTS.md](AGENTS.md): the test command, the patch edit/save flow and the rules for the repo. To check the workflows end to end, use the smoke kit: [smoke/README.md](smoke/README.md).
