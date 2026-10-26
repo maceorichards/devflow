@@ -52,7 +52,9 @@ class SyncSandbox:
             raise
         self.local_file = os.path.join(self.repo, "devflow.local.json")
 
-    def run(self, *args):
+    def run(self, *args, env=None):
+        if env is not None:
+            raise NotImplementedError("SyncSandbox.run(env=...): #37 task 1")
         env = os.environ.copy()
         env["HOME"] = self.home
         return subprocess.run(
