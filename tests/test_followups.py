@@ -6,6 +6,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 from tests import harness
 from tests.harness import SyncSandbox
@@ -216,6 +217,13 @@ class TrailingBlankLinesTest(unittest.TestCase):
 
 
 class VendorDriftTest(unittest.TestCase):
+    def setUp(self):
+        # These pin the default skip, so they run without the CI switch (#39).
+        env = mock.patch.dict(os.environ)
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("DEVFLOW_REQUIRE_VENDORS", None)
+
     def git(self, *args, cwd):
         subprocess.run(["git"] + list(args), cwd=cwd, check=True, capture_output=True)
 
