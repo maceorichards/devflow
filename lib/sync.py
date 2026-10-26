@@ -26,7 +26,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, "manifest.json")
 LOCK = os.path.join(ROOT, "vendor.lock")
 LOCAL = os.path.join(ROOT, "devflow.local.json")
-GIT_IGNORE = os.path.expanduser("~/.config/git/ignore")
 MD_START = "<!-- devflow:start"
 MD_END = "<!-- devflow:end -->"
 
@@ -268,12 +267,30 @@ def cleanup(man, tilde_dir, install_ids, dry, failures):
 
 
 # --------------------------------------------------------------------- global config
-def clone_path():
-    """This clone's root as the section header and ignore comment name it: `~/...` under HOME."""
+def tilde(path):
+    """`~/...` for a path under HOME (or `~` itself), the path unchanged otherwise."""
     home = os.path.expanduser("~").rstrip(os.sep)
-    if home and (ROOT == home or ROOT.startswith(home + os.sep)):
-        return "~" + ROOT[len(home):]
-    return ROOT
+    if home and (path == home or path.startswith(home + os.sep)):
+        return "~" + path[len(home):]
+    return path
+
+
+def clone_path():
+    """This clone's root as the section header and ignore comment name it."""
+    return tilde(ROOT)
+
+
+def git_ignore_target():
+    """The file git reads global excludes from (#37): `core.excludesFile` from the global git
+    config, else `$XDG_CONFIG_HOME/git/ignore`, else `~/.config/git/ignore`."""
+    r = subprocess.run(["git", "config", "--global", "--type=path", "--get", "core.excludesFile"],
+                       capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip():
+        return r.stdout.strip()
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        return os.path.join(xdg, "git", "ignore")
+    return os.path.expanduser("~/.config/git/ignore")
 
 
 def section_bounds(cur):
@@ -352,20 +369,22 @@ def remove_instructions(tilde_path, dry):
 def sync_git_ignore(dry):
     with open(os.path.join(ROOT, "global", "git-ignore-lines")) as f:
         want = [l.strip() for l in f if l.strip() and not l.startswith("#")]
-    cur = open(GIT_IGNORE).read() if os.path.exists(GIT_IGNORE) else ""
+    target = git_ignore_target()
+    shown = tilde(target)
+    cur = open(target).read() if os.path.exists(target) else ""
     have = {l.strip() for l in cur.splitlines()}
     missing = [l for l in want if l not in have]
     if not missing:
-        return "git ignore lines present"
+        return f"git ignore lines present in {shown}"
     if not dry:
-        os.makedirs(os.path.dirname(GIT_IGNORE), exist_ok=True)
-        with open(GIT_IGNORE, "a") as f:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "a") as f:
             if cur and not cur.endswith("\n"):
                 f.write("\n")
             if "# devflow" not in cur:
                 f.write(f"# devflow (managed by {clone_path()})\n")
             f.write("\n".join(missing) + "\n")
-    return f"{'would add' if dry else 'added'} to ~/.config/git/ignore: {', '.join(missing)}"
+    return f"{'would add' if dry else 'added'} to git ignore {shown}: {', '.join(missing)}"
 
 
 # --------------------------------------------------------------------- commands

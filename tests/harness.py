@@ -53,13 +53,20 @@ class SyncSandbox:
         self.local_file = os.path.join(self.repo, "devflow.local.json")
 
     def run(self, *args, env=None):
-        if env is not None:
-            raise NotImplementedError("SyncSandbox.run(env=...): #37 task 1")
-        env = os.environ.copy()
-        env["HOME"] = self.home
+        """Run sync.sh isolated from the runner's git and XDG settings; `env` overrides on top
+        (a None value deletes the key)."""
+        e = {k: v for k, v in os.environ.items()
+             if k != "XDG_CONFIG_HOME" and not k.startswith("GIT_CONFIG")}
+        e["GIT_CONFIG_NOSYSTEM"] = "1"
+        e["HOME"] = self.home
+        for k, v in (env or {}).items():
+            if v is None:
+                e.pop(k, None)
+            else:
+                e[k] = v
         return subprocess.run(
             [os.path.join(self.repo, "sync.sh")] + list(args),
-            cwd=self.repo, env=env, capture_output=True, text=True)
+            cwd=self.repo, env=e, capture_output=True, text=True)
 
     def home_path(self, tilde_path):
         if tilde_path == "~":
