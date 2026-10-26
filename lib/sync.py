@@ -268,6 +268,14 @@ def cleanup(man, tilde_dir, install_ids, dry, failures):
 
 
 # --------------------------------------------------------------------- global config
+def clone_path():
+    """This clone's root as the section header and ignore comment name it: `~/...` under HOME."""
+    home = os.path.expanduser("~").rstrip(os.sep)
+    if home and (ROOT == home or ROOT.startswith(home + os.sep)):
+        return "~" + ROOT[len(home):]
+    return ROOT
+
+
 def section_bounds(cur):
     """(a, b) for exactly one well-ordered section, None for no markers; ValueError otherwise."""
     starts, ends = cur.count(MD_START), cur.count(MD_END)
@@ -289,7 +297,7 @@ def unreadable_skip(tilde_path):
 def sync_instructions(tilde_path, dry):
     path = os.path.expanduser(tilde_path)
     with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
-        section = f.read().strip() + "\n"
+        section = f.read().replace("{{clone}}", clone_path()).strip() + "\n"
     cur = ""
     if os.path.exists(path):
         try:
@@ -355,7 +363,7 @@ def sync_git_ignore(dry):
             if cur and not cur.endswith("\n"):
                 f.write("\n")
             if "# devflow" not in cur:
-                f.write("# devflow (managed by ~/Documents/CUSTOM-SKILLS/devflow)\n")
+                f.write(f"# devflow (managed by {clone_path()})\n")
             f.write("\n".join(missing) + "\n")
     return f"{'would add' if dry else 'added'} to ~/.config/git/ignore: {', '.join(missing)}"
 
