@@ -145,5 +145,122 @@ class IgnoreTargetTest(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(runner, "git", "ignore")))
 
 
+class IgnoreTargetRobustnessTest(unittest.TestCase):
+    """#37 (part of #34): a bad or unusable ignore target warns and never breaks the sync."""
+
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+        self.lines = expected_lines()
+        self.home = self.sb.home
+        self.tmp = self.sb.tmp
+
+    def gitconfig(self, value):
+        write(os.path.join(self.home, ".gitconfig"), core_block(value))
+
+    def locked_setup(self, *args):
+        if os.geteuid() == 0:
+            self.skipTest("root ignores directory permissions")
+        locked = os.path.join(self.tmp, "locked")
+        os.makedirs(locked)
+        os.chmod(locked, 0o500)
+        self.addCleanup(os.chmod, locked, 0o700)
+        self.gitconfig(os.path.join(locked, "ignore"))
+        return self.sb.run(*args)
+
+    def ignore_lines(self, r):
+        return [l for l in r.stdout.splitlines() if "git ignore" in l]
+
+    def test_symlinked_target_stays_a_link(self):
+        # Characterization: may already pass after Task 1.
+        real = os.path.join(self.home, "dotfiles", "ignore")
+        write(real, "node_modules\n")
+        link = os.path.join(self.home, ".config", "git", "ignore")
+        os.makedirs(os.path.dirname(link))
+        os.symlink(real, link)
+        self.sb.run()
+        self.assertTrue(os.path.islink(link))
+        got = read(real).splitlines()
+        for l in ["node_modules"] + self.lines:
+            self.assertIn(l, got)
+
+    def test_missing_trailing_newline_is_respected(self):
+        # Characterization: may already pass after Task 1.
+        path = os.path.join(self.home, ".config", "git", "ignore")
+        write(path, "node_modules")
+        self.sb.run()
+        got = read(path).splitlines()
+        self.assertEqual(got[0], "node_modules")
+        for l in self.lines:
+            self.assertIn(l, got)
+
+    def test_unwritable_target_returns_zero(self):
+        r = self.locked_setup()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_unwritable_target_warns_with_lines(self):
+        r = self.locked_setup()
+        warn = [l for l in r.stdout.splitlines()
+                if l.startswith("WARN git ignore: could not write ")]
+        self.assertEqual(len(warn), 1, r.stdout + r.stderr)
+        for l in self.lines:
+            self.assertIn(l, warn[0])
+
+    def test_unwritable_target_sync_still_completes(self):
+        self.locked_setup()
+        self.assertTrue(self.sb.managed_skills("~/.claude/skills"))
+
+    def test_relative_excludesfile_warns_and_writes_nothing(self):
+        self.gitconfig("relative/ignore")
+        r = self.sb.run()
+        with self.subTest("exit code"):
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with self.subTest("warning"):
+            self.assertTrue(any(
+                l.startswith("WARN git ignore: core.excludesFile is relative (relative/ignore)")
+                for l in r.stdout.splitlines()), r.stdout)
+        for p in (os.path.join(self.sb.repo, "relative", "ignore"),
+                  os.path.join(self.home, "relative", "ignore"),
+                  os.path.join(self.home, ".config", "git", "ignore")):
+            with self.subTest(path=p):
+                self.assertFalse(os.path.exists(p))
+
+    def test_malformed_global_config_warns_and_writes_nothing(self):
+        write(os.path.join(self.home, ".gitconfig"), "[core\n")
+        r = self.sb.run()
+        with self.subTest("exit code"):
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with self.subTest("warning"):
+            self.assertTrue(any(
+                l.startswith("WARN git ignore: could not read core.excludesFile")
+                for l in r.stdout.splitlines()), r.stdout)
+        with self.subTest("nothing written"):
+            self.assertFalse(os.path.exists(os.path.join(self.home, ".config", "git", "ignore")))
+
+    def test_unused_old_file_left_untouched(self):
+        # Characterization: may already pass after Task 1.
+        old = os.path.join(self.home, ".config", "git", "ignore")
+        content = "# devflow (managed by somewhere)\n.devflow/\n"
+        write(old, content)
+        self.gitconfig("~/dotfiles/gitignore")
+        self.sb.run()
+        with self.subTest("old file unchanged"):
+            self.assertEqual(read(old), content)
+        with self.subTest("new file has lines"):
+            got = read(os.path.join(self.home, "dotfiles", "gitignore")).splitlines()
+            for l in self.lines:
+                self.assertIn(l, got)
+
+    def test_warning_keeps_single_ignore_status_line(self):
+        self.sb.write_local(["claude"])
+        r = self.locked_setup()
+        found = self.ignore_lines(r)
+        self.assertEqual(len(found), 1, r.stdout + r.stderr)
+        out = r.stdout.splitlines()
+        inst = [i for i, l in enumerate(out) if "instructions" in l]
+        self.assertTrue(inst, r.stdout)
+        self.assertGreater(out.index(found[0]), inst[0])
+
+
 if __name__ == "__main__":
     unittest.main()
