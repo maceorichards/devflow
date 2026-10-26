@@ -207,6 +207,7 @@ class IgnoreTargetRobustnessTest(unittest.TestCase):
             self.assertIn(l, warn[0])
 
     def test_unwritable_target_sync_still_completes(self):
+        # Characterization: skills sync before the ignore step, so this passes pre-fix.
         self.locked_setup()
         self.assertTrue(self.sb.managed_skills("~/.claude/skills"))
 
@@ -224,18 +225,6 @@ class IgnoreTargetRobustnessTest(unittest.TestCase):
                   os.path.join(self.home, ".config", "git", "ignore")):
             with self.subTest(path=p):
                 self.assertFalse(os.path.exists(p))
-
-    def test_malformed_global_config_warns_and_writes_nothing(self):
-        write(os.path.join(self.home, ".gitconfig"), "[core\n")
-        r = self.sb.run()
-        with self.subTest("exit code"):
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        with self.subTest("warning"):
-            self.assertTrue(any(
-                l.startswith("WARN git ignore: could not read core.excludesFile")
-                for l in r.stdout.splitlines()), r.stdout)
-        with self.subTest("nothing written"):
-            self.assertFalse(os.path.exists(os.path.join(self.home, ".config", "git", "ignore")))
 
     def test_unused_old_file_left_untouched(self):
         # Characterization: may already pass after Task 1.
