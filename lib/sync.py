@@ -283,9 +283,11 @@ def clone_path():
 def git_ignore_target():
     """The file git reads global excludes from (#37): `core.excludesFile` from the global git
     config, else `$XDG_CONFIG_HOME/git/ignore`, else `~/.config/git/ignore`. ValueError (with
-    the reason) when the config can't be read or the value is relative (#37: warn, never break)."""
+    the reason) when the config can't be read or the value is relative (#37: warn, never break).
+    `--includes` because naming a scope turns [include]/includeIf off, and git itself follows them (#34)."""
     try:
-        r = subprocess.run(["git", "config", "--global", "--type=path", "--get", "core.excludesFile"],
+        r = subprocess.run(["git", "config", "--global", "--includes", "--type=path", "--get",
+                            "core.excludesFile"],
                            capture_output=True, text=True)
     except OSError as e:
         raise ValueError(f"could not read core.excludesFile ({e})")
@@ -386,6 +388,7 @@ def sync_git_ignore(dry):
         return f"WARN git ignore: {e}; {manual}"
     shown = tilde(target)
     missing = want  # nothing is known to be present until the file has been read
+    action = "read"
     try:
         cur = open(target).read() if os.path.exists(target) else ""
         have = {l.strip() for l in cur.splitlines()}
@@ -393,6 +396,7 @@ def sync_git_ignore(dry):
         if not missing:
             return f"git ignore lines present in {shown}"
         if not dry:
+            action = "write"
             os.makedirs(os.path.dirname(target), exist_ok=True)
             with open(target, "a") as f:
                 if cur and not cur.endswith("\n"):
@@ -400,8 +404,9 @@ def sync_git_ignore(dry):
                 if "# devflow" not in cur:
                     f.write(f"# devflow (managed by {clone_path()})\n")
                 f.write("\n".join(missing) + "\n")
-    except OSError as e:
-        return (f"WARN git ignore: could not write {shown} ({e.strerror or e}); "
+    except (OSError, UnicodeDecodeError) as e:  # undecodable target: warn, never crash (#34)
+        why = e.strerror if isinstance(e, OSError) and e.strerror else e
+        return (f"WARN git ignore: could not {action} {shown} ({why}); "
                 f"add these lines yourself: {', '.join(missing)}")
     return f"{'would add' if dry else 'added'} to git ignore {shown}: {', '.join(missing)}"
 

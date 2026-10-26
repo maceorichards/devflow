@@ -251,5 +251,36 @@ class IgnoreTargetRobustnessTest(unittest.TestCase):
         self.assertGreater(out.index(found[0]), inst[0])
 
 
+class IgnoreTargetFinalReviewTest(unittest.TestCase):
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+        self.lines = expected_lines()
+        self.home = self.sb.home
+
+    def test_excludesfile_set_in_included_config_is_honored(self):
+        write(os.path.join(self.home, ".gitconfig"), "[include]\n\tpath = ~/dotfiles/gitconfig\n")
+        write(os.path.join(self.home, "dotfiles", "gitconfig"), core_block("~/dotfiles/gitignore"))
+        self.sb.run()
+        got = read(os.path.join(self.home, "dotfiles", "gitignore")).splitlines()
+        for l in self.lines:
+            self.assertEqual(got.count(l), 1, l)
+        self.assertFalse(os.path.exists(os.path.join(self.home, ".config", "git", "ignore")))
+
+    def test_undecodable_target_warns_and_is_left_unchanged(self):
+        path = os.path.join(self.home, ".config", "git", "ignore")
+        os.makedirs(os.path.dirname(path))
+        with open(path, "wb") as f:
+            f.write(b"\xff\xfe\x00bad")
+        r = self.sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        warn = [l for l in r.stdout.splitlines() if l.startswith("WARN git ignore: could not read ")]
+        self.assertEqual(len(warn), 1, r.stdout + r.stderr)
+        for l in self.lines:
+            self.assertIn(l, warn[0])
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), b"\xff\xfe\x00bad")
+
+
 if __name__ == "__main__":
     unittest.main()
