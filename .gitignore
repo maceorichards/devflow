@@ -1,4 +1,9 @@
-vendor/
+# vendor clones, as a folder or a symlink, at any depth
+vendor
 .patch-work/
 __pycache__/
 devflow.local.json
+# per-tool instructions files: AGENTS.md is the shared one
+/CLAUDE.md
+/CLAUDE.local.md
+/GEMINI.md
