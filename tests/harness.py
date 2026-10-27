@@ -14,7 +14,11 @@ _FILES = ("manifest.json", "vendor.lock", "sync.sh")
 
 def check_vendors(root):
     """Skip unless every vendor clone exists at its locked commit: the sandbox links the
-    real clones, so a sync must never need to fetch or check out in them."""
+    real clones, so a sync must never need to fetch or check out in them. With
+    DEVFLOW_REQUIRE_VENDORS=1 (CI), fail instead, so a run can't pass by skipping."""
+    fail = unittest.SkipTest
+    if os.environ.get("DEVFLOW_REQUIRE_VENDORS") == "1":
+        fail = AssertionError
     with open(os.path.join(root, "manifest.json")) as f:
         vendors = json.load(f)["vendors"]
     with open(os.path.join(root, "vendor.lock")) as f:
@@ -22,12 +26,12 @@ def check_vendors(root):
     for src, v in vendors.items():
         d = os.path.join(root, v["dir"])
         if not os.path.exists(os.path.join(d, ".git")):
-            raise unittest.SkipTest(
+            raise fail(
                 "vendor clones missing: run ./sync.sh once in the devflow repo first")
         head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=d,
                               capture_output=True, text=True).stdout.strip()
         if head != lock.get(src):
-            raise unittest.SkipTest(
+            raise fail(
                 f"{v['dir']} is at {head[:8] or '?'}, not {str(lock.get(src))[:8]} from vendor.lock: "
                 "run ./sync.sh in the devflow repo first")
 
@@ -52,12 +56,21 @@ class SyncSandbox:
             raise
         self.local_file = os.path.join(self.repo, "devflow.local.json")
 
-    def run(self, *args):
-        env = os.environ.copy()
-        env["HOME"] = self.home
+    def run(self, *args, env=None):
+        """Run sync.sh isolated from the runner's git and XDG settings; `env` overrides on top
+        (a None value deletes the key)."""
+        e = {k: v for k, v in os.environ.items()
+             if k != "XDG_CONFIG_HOME" and not k.startswith("GIT_CONFIG")}
+        e["GIT_CONFIG_NOSYSTEM"] = "1"
+        e["HOME"] = self.home
+        for k, v in (env or {}).items():
+            if v is None:
+                e.pop(k, None)
+            else:
+                e[k] = v
         return subprocess.run(
             [os.path.join(self.repo, "sync.sh")] + list(args),
-            cwd=self.repo, env=env, capture_output=True, text=True)
+            cwd=self.repo, env=e, capture_output=True, text=True)
 
     def home_path(self, tilde_path):
         if tilde_path == "~":

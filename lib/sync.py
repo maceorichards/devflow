@@ -26,7 +26,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, "manifest.json")
 LOCK = os.path.join(ROOT, "vendor.lock")
 LOCAL = os.path.join(ROOT, "devflow.local.json")
-GIT_IGNORE = os.path.expanduser("~/.config/git/ignore")
 MD_START = "<!-- devflow:start"
 MD_END = "<!-- devflow:end -->"
 
@@ -268,6 +267,44 @@ def cleanup(man, tilde_dir, install_ids, dry, failures):
 
 
 # --------------------------------------------------------------------- global config
+def tilde(path):
+    """`~/...` for a path under HOME (or `~` itself), the path unchanged otherwise."""
+    home = os.path.expanduser("~").rstrip(os.sep)
+    if home and (path == home or path.startswith(home + os.sep)):
+        return "~" + path[len(home):]
+    return path
+
+
+def clone_path():
+    """This clone's root as the section header and ignore comment name it."""
+    return tilde(ROOT)
+
+
+def git_ignore_target():
+    """The file git reads global excludes from (#37): `core.excludesFile` from the global git
+    config, else `$XDG_CONFIG_HOME/git/ignore`, else `~/.config/git/ignore`. ValueError (with
+    the reason) when the config can't be read or the value is relative (#37: warn, never break).
+    `--includes` because naming a scope turns [include]/includeIf off, and git itself follows them (#34)."""
+    try:
+        r = subprocess.run(["git", "config", "--global", "--includes", "--type=path", "--get",
+                            "core.excludesFile"],
+                           capture_output=True, text=True)
+    except OSError as e:
+        raise ValueError(f"could not read core.excludesFile ({e})")
+    if r.returncode not in (0, 1):
+        lines = r.stderr.strip().splitlines()
+        raise ValueError(f"could not read core.excludesFile ({lines[0] if lines else 'git exited ' + str(r.returncode)})")
+    value = r.stdout.strip() if r.returncode == 0 else ""
+    if value:
+        if not os.path.isabs(value):
+            raise ValueError(f"core.excludesFile is relative ({value})")
+        return value
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        return os.path.join(xdg, "git", "ignore")
+    return os.path.expanduser("~/.config/git/ignore")
+
+
 def section_bounds(cur):
     """(a, b) for exactly one well-ordered section, None for no markers; ValueError otherwise."""
     starts, ends = cur.count(MD_START), cur.count(MD_END)
@@ -289,7 +326,7 @@ def unreadable_skip(tilde_path):
 def sync_instructions(tilde_path, dry):
     path = os.path.expanduser(tilde_path)
     with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
-        section = f.read().strip() + "\n"
+        section = f.read().replace("{{clone}}", clone_path()).strip() + "\n"
     cur = ""
     if os.path.exists(path):
         try:
@@ -344,20 +381,34 @@ def remove_instructions(tilde_path, dry):
 def sync_git_ignore(dry):
     with open(os.path.join(ROOT, "global", "git-ignore-lines")) as f:
         want = [l.strip() for l in f if l.strip() and not l.startswith("#")]
-    cur = open(GIT_IGNORE).read() if os.path.exists(GIT_IGNORE) else ""
-    have = {l.strip() for l in cur.splitlines()}
-    missing = [l for l in want if l not in have]
-    if not missing:
-        return "git ignore lines present"
-    if not dry:
-        os.makedirs(os.path.dirname(GIT_IGNORE), exist_ok=True)
-        with open(GIT_IGNORE, "a") as f:
-            if cur and not cur.endswith("\n"):
-                f.write("\n")
-            if "# devflow" not in cur:
-                f.write("# devflow (managed by ~/Documents/CUSTOM-SKILLS/devflow)\n")
-            f.write("\n".join(missing) + "\n")
-    return f"{'would add' if dry else 'added'} to ~/.config/git/ignore: {', '.join(missing)}"
+    manual = "add these lines yourself: " + ", ".join(want)
+    try:
+        target = git_ignore_target()
+    except ValueError as e:
+        return f"WARN git ignore: {e}; {manual}"
+    shown = tilde(target)
+    missing = want  # nothing is known to be present until the file has been read
+    action = "read"
+    try:
+        cur = open(target).read() if os.path.exists(target) else ""
+        have = {l.strip() for l in cur.splitlines()}
+        missing = [l for l in want if l not in have]
+        if not missing:
+            return f"git ignore lines present in {shown}"
+        if not dry:
+            action = "write"
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "a") as f:
+                if cur and not cur.endswith("\n"):
+                    f.write("\n")
+                if "# devflow" not in cur:
+                    f.write(f"# devflow (managed by {clone_path()})\n")
+                f.write("\n".join(missing) + "\n")
+    except (OSError, UnicodeDecodeError) as e:  # undecodable target: warn, never crash (#34)
+        why = e.strerror if isinstance(e, OSError) and e.strerror else e
+        return (f"WARN git ignore: could not {action} {shown} ({why}); "
+                f"add these lines yourself: {', '.join(missing)}")
+    return f"{'would add' if dry else 'added'} to git ignore {shown}: {', '.join(missing)}"
 
 
 # --------------------------------------------------------------------- commands
@@ -453,7 +504,8 @@ def apply_all(man, lock, dry=False, only_sources=None, selected=None):
                 status = remove_instructions(f, dry)
         if status:
             print("  " + status)
-    print("  " + sync_git_ignore(dry))
+    status = sync_git_ignore(dry)
+    print(status if status.startswith("WARN") else "  " + status)  # #37: a WARN starts its line
     for p in man["providers"]:
         if p["name"] in selected and not p["instructions"]:
             print(f"note: {p['name']} reads no instructions file: paste global/claude-md-section.md "

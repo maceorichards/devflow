@@ -1,0 +1,38 @@
+{
+  "claude": {
+    "verified": true,
+    "session": "caller",
+    "bypass": ["--permission-mode", "bypassPermissions"],
+    "read_only": ["--tools", "Read,Grep,Glob", "--permission-mode", "dontAsk"],
+    "new": ["claude", "-p", "{msg}", "--session-id", "{id}", "{bypass}", "--output-format", "json"],
+    "resume": ["claude", "-p", "{msg}", "--resume", "{id}", "{bypass}", "--output-format", "json"],
+    "stand_in": ["claude", "-p", "{msg}", "{read_only}", "--output-format", "json"],
+    "output": {"format": "json", "text": "result", "session_id": "session_id",
+               "is_error": "is_error", "subtype": "subtype", "ok_subtype": "success"}
+  },
+  "cursor": {
+    "verified": true,
+    "session": "create",
+    "create": ["agent", "create-chat"],
+    "bypass": ["--force"],
+    "read_only": ["--mode", "ask"],
+    "new": ["agent", "-p", "{msg}", "--resume", "{id}", "{bypass}", "--trust", "--output-format", "json"],
+    "resume": ["agent", "-p", "{msg}", "--resume", "{id}", "{bypass}", "--trust", "--output-format", "json"],
+    "stand_in": ["agent", "-p", "{msg}", "{read_only}", "--trust", "--output-format", "json"],
+    "output": {"format": "json", "text": "result", "session_id": "session_id",
+               "is_error": "is_error", "subtype": "subtype", "ok_subtype": "success"}
+  },
+  "codex": {
+    "verified": false,
+    "session": "output",
+    "bypass": ["--dangerously-bypass-approvals-and-sandbox"],
+    "read_only": ["--sandbox", "read-only"],
+    "new": ["codex", "exec", "--json", "{bypass}", "{msg}"],
+    "resume": ["codex", "exec", "resume", "{id}", "--json", "{bypass}", "{msg}"],
+    "stand_in": ["codex", "exec", "--json", "{read_only}", "{msg}"],
+    "output": {"format": "jsonl",
+               "session_id": {"event": "thread.started", "field": "thread_id"},
+               "text": {"event": "item.completed", "item_type": "agent_message", "field": "text"},
+               "done": "turn.completed", "failed": ["turn.failed", "error"]}
+  }
+}

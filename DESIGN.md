@@ -57,13 +57,13 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 ## 9. SDD skips its own final review for devflow callers
 
 - **Decision:** when `/dev-single --rigor` or `run-lanes` calls SDD, it skips its whole-branch Final Review and returns its deferred minor findings along with its Rulings.
-- **Why:** the caller's final review (`spec-review` over the whole feature, with one fix pass; see 15) covers the same ground. In the smoke test, three reviews of one branch reached the same verdict. Per-task reviews still gate every task.
+- **Why:** the caller's final review (`spec-review` over the whole feature, with one fix pass; see 15) covers the same ground. In a [smoke run](smoke/README.md), three reviews of one branch reached the same verdict. Per-task reviews still gate every task.
 - **Rejected:** keeping SDD's final review and dropping `spec-review` in rigor mode.
 
 ## 10. Footprints stay per module; splits for parallelism are raised
 
 - **Decision:** `to-tickets` lists each ticket's footprint as modules. If tickets can only run in parallel after a module is split, the proposal says so and asks: split or serialize.
-- **Why:** in the smoke test, a one-file module was quietly turned into a package just so tickets could run in parallel, and review then flagged that as speculative generality. Asking keeps that architecture choice yours.
+- **Why:** in a smoke run, a one-file module was quietly turned into a package just so tickets could run in parallel, and review then flagged that as speculative generality. Asking keeps that architecture choice yours.
 - **Rejected:** per-function footprints for fast tickets that only add new functions.
 
 ## 11. `--auto` uses a stand-in agent and ends at the PR
@@ -101,3 +101,10 @@ Why devflow is built the way it is. [SKILLS.md](SKILLS.md) says what is installe
 - **Why:** skill folders are read by several tools (as of 2026-10: Codex, Gemini CLI and Copilot CLI read `~/.agents/skills`; Cursor reads `~/.agents`, `~/.cursor`, `~/.claude` and `~/.codex` skills and honors `disable-model-invocation`; Claude Code reads only `~/.claude/skills`), so one build can serve all of them. A local choice keeps the repo free of per-machine state.
 - **Cost accepted:** Cursor with Claude or Codex also selected reads both folders, so duplicates can appear. Codex needs `multi_agent = true` for subagents.
 - **Rejected:** a per-tool mapping file for each tool (obra/superpowers), plugin packaging, and rewording skill bodies per tool. devflow follows mattpocock/skills' lighter approach, keeping "Call the Skill tool" prose and adding one translation sentence to the global section.
+
+## 16. Contributor rules live outside the devflow section; the smoke kit runs any agent
+
+- **Decision:** rules for developing devflow itself (the suite, patch editing, the smoke-driver exception) live in the contributor instructions: the tracked `AGENTS.md`. Per-tool files (`CLAUDE.md`, `CLAUDE.local.md`, `GEMINI.md`) are git-ignored, and `AGENTS.md` says how each tool reads it. The devflow section carries only what every user needs. The smoke kit in `smoke/` is one Python driver over a per-agent command table (`agents.json`), with the agent under test and the stand-in chosen separately. Results stay out of the repo; findings become GitHub issues.
+- **Why:** the devflow section loads into every session of every user, so a rule only contributors need is pure context cost (see 14). `AGENTS.md` is the one file most tools read. A table makes adding an agent one entry, so a smoke run can test any provider (see 15), and a Claude stand-in can answer for Codex under test.
+- **Cost accepted:** a smoke run makes live agent calls and creates a real GitHub repo. The codex entry is unverified until it has been smoke-run.
+- **Rejected:** keeping the rule in the devflow section; a local section-override mechanism (sync machinery for one rule); the old Claude-only bash scripts kept outside the repo (stale and personal); tracking results in the repo (an issue is the lasting record).
