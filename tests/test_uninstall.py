@@ -202,5 +202,162 @@ class UninstallSkillsTest(unittest.TestCase):
                                  sb.manifest_skill_names())
 
 
+def _section(text):
+    """The devflow section (start marker through end marker) of an instructions file."""
+    start = text.index("<!-- devflow:start")
+    end = text.index("<!-- devflow:end -->") + len("<!-- devflow:end -->")
+    return text[start:end]
+
+
+class UninstallInstructionsTest(unittest.TestCase):
+    """Instructions files, notes and closing lines (#63 user story k, ticket #64)."""
+
+    def setUp(self):
+        self.sb = SyncSandbox()
+        self.addCleanup(self.sb.close)
+
+    def install(self, providers="claude,codex"):
+        r = self.sb.run("providers", providers)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def uninstall(self, *args):
+        r = self.sb.run("uninstall", *args)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return r
+
+    def test_sections_removed_from_every_instructions_file(self):
+        sb = self.sb
+        self.install()
+        r = self.uninstall()
+        self.assertNotIn("<!-- devflow:start", _read(sb.home_path("~/.claude/CLAUDE.md")))
+        self.assertNotIn("<!-- devflow:start", _read(sb.home_path("~/.codex/AGENTS.md")))
+        self.assertIn("removed ~/.claude/CLAUDE.md devflow section", r.stdout)
+        self.assertIn("removed ~/.codex/AGENTS.md devflow section", r.stdout)
+
+    def test_section_removed_for_unselected_provider(self):
+        sb = self.sb
+        self.install("claude")
+        section = _section(_read(sb.home_path("~/.claude/CLAUDE.md")))
+        gemini = sb.home_path("~/.gemini/GEMINI.md")
+        _write(gemini, "gemini notes\n\n" + section + "\n")
+        self.uninstall()
+        self.assertNotIn("<!-- devflow:start", _read(gemini))
+
+    def test_user_text_around_markers_kept(self):
+        sb = self.sb
+        self.install()
+        path = sb.home_path("~/.claude/CLAUDE.md")
+        _write(path, "before\n\n" + _section(_read(path)) + "\n\nafter\n")
+        self.uninstall()
+        text = _read(path)
+        self.assertIn("before", text)
+        self.assertIn("after", text)
+        self.assertNotIn("devflow:start", text)
+
+    def test_incomplete_markers_left_untouched_and_counted(self):
+        sb = self.sb
+        self.install()
+        path = sb.home_path("~/.codex/AGENTS.md")
+        content = "mine\n<!-- devflow:start -->\nhalf\n"
+        _write(path, content)
+        r = self.uninstall()
+        self.assertEqual(_read(path), content)
+        self.assertIn("SKIP ~/.codex/AGENTS.md: devflow markers incomplete, left untouched",
+                      r.stdout)
+        self.assertIn("1 item(s) left for you to remove by hand (see the SKIP lines above)",
+                      r.stdout)
+
+    def test_shared_instructions_file_handled_once(self):
+        sb = self.sb
+        self.install("claude")
+        codex = sb.home_path("~/.codex/AGENTS.md")
+        os.makedirs(os.path.dirname(codex), exist_ok=True)
+        if os.path.lexists(codex):
+            os.remove(codex)
+        os.symlink(sb.home_path("~/.claude/CLAUDE.md"), codex)
+        r = self.uninstall()
+        self.assertIn("SKIP ~/.codex/AGENTS.md: same file as ~/.claude/CLAUDE.md, left untouched",
+                      r.stdout)
+        self.assertNotIn("item(s) left", r.stdout)
+
+    def test_symlinked_instructions_file_stays_a_link(self):
+        sb = self.sb
+        self.install("claude")
+        link = sb.home_path("~/.claude/CLAUDE.md")
+        target = os.path.join(sb.tmp, "dotfiles", "CLAUDE.md")
+        os.makedirs(os.path.dirname(target))
+        os.rename(link, target)
+        os.symlink(target, link)
+        self.uninstall()
+        self.assertTrue(os.path.islink(link))
+        self.assertNotIn("devflow:start", _read(target))
+
+    def test_section_only_file_kept_without_markers(self):
+        sb = self.sb
+        self.install("claude")
+        path = sb.home_path("~/.claude/CLAUDE.md")
+        self.assertIn("devflow:start", _read(path))
+        self.uninstall()
+        self.assertTrue(os.path.isfile(path))
+        self.assertNotIn("devflow:start", _read(path))
+
+    def test_notes_block(self):
+        sb = self.sb
+        self.install()
+        ignore = sb.home_path("~/.config/git/ignore")
+        before = _read(ignore) if os.path.exists(ignore) else None
+        r = self.uninstall()
+        lines = r.stdout.splitlines()
+        self.assertIn("notes", lines)
+        i = lines.index("notes")
+        self.assertEqual(lines[i + 1:i + 5], [
+            "  git ignore lines kept in ~/.config/git/ignore: .devflow/, .worktrees/, .claude/worktrees/",
+            "  Cursor: delete the devflow section from Customize \u2192 Rules if you added it",
+            "  kept: this clone (devflow.local.json, vendor/) and every project's .devflow/ and .worktrees/",
+            "  to reinstall: ./sync.sh",
+        ])
+        after = _read(ignore) if os.path.exists(ignore) else None
+        self.assertEqual(after, before)
+
+    def test_blocks_in_order(self):
+        self.install()
+        lines = self.uninstall().stdout.splitlines()
+        blocks = ("~/.claude/skills", "instructions", "notes")
+        for b in blocks:
+            self.assertIn(b, lines)
+        idx = [lines.index(b) for b in blocks]
+        self.assertEqual(idx, sorted(idx))
+        self.assertEqual(len(set(idx)), 3)
+
+    def test_second_run_nothing_to_remove(self):
+        sb = self.sb
+        self.install()
+        self.uninstall()
+        before = snapshot(sb.home)
+        r = self.uninstall()
+        lines = r.stdout.splitlines()
+        self.assertIn("nothing to remove", lines)
+        self.assertEqual([l for l in lines if l.startswith("  removed")], [])
+        self.assertEqual(snapshot(sb.home), before)
+
+    def test_fresh_home_nothing_to_remove_creates_nothing(self):
+        sb = self.sb
+        before = snapshot(sb.home)
+        r = self.uninstall()
+        self.assertIn("nothing to remove", r.stdout.splitlines())
+        self.assertEqual(snapshot(sb.home), before)
+
+    def test_local_file_kept(self):
+        # characterization: uninstall never touches devflow.local.json (may already pass)
+        sb = self.sb
+        sb.write_local(["claude", "codex"])
+        r = sb.run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        path = os.path.join(sb.repo, "devflow.local.json")
+        before = _read(path)
+        self.uninstall()
+        self.assertEqual(_read(path), before)
+
+
 if __name__ == "__main__":
     unittest.main()
