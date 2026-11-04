@@ -271,3 +271,95 @@ class CiWorkflowTest(unittest.TestCase):
 
     def test_runs_unittest(self):
         self.assertIn("python3 -m unittest", self.ci())
+
+
+class WindowsQuickstartTest(unittest.TestCase):
+    """#56 (#52 user stories 18-19): the Quickstart tells Windows users what to run and how to repair."""
+
+    REPAIR = "git rm -rq --cached . && git reset -q --hard"
+
+    def quickstart(self):
+        return ReadmeFirstRunTest.quickstart(self)
+
+    def test_quickstart_mentions_git_bash(self):
+        self.assertIn("Git Bash", self.quickstart())
+
+    def test_quickstart_windows_line_names_git_bash_and_python_3_9(self):
+        paras = paragraphs(self.quickstart())
+        self.assertTrue(
+            any("Windows" in p and "Git Bash" in p and "Python 3.9" in p for p in paras),
+            "no paragraph or list item has Windows with Git Bash and Python 3.9")
+
+    def test_quickstart_gives_one_time_repair_command(self):
+        self.assertIn(self.REPAIR, self.quickstart())
+
+    def test_repair_command_comes_with_commit_or_stash_warning(self):
+        paras = [p.lower() for p in paragraphs(self.quickstart()) if self.REPAIR in p]
+        self.assertTrue(
+            any("commit" in p and "stash" in p for p in paras),
+            "the paragraph with the repair command doesn't say to commit or stash first")
+
+
+def strip_comments(text):
+    """Drop YAML/shell '#' comments so prose in comments can't satisfy or break a check."""
+    return re.sub(r"(?m)(^|\s)#.*$", r"\1", text)
+
+
+class WindowsCiJobTest(unittest.TestCase):
+    """#56 (#52 user stories 22-24): a windows-latest job proves a fresh install under Git Bash."""
+
+    def windows_job(self):
+        """The text of the job whose runs-on is windows-latest: its job key line up to the next job key."""
+        ci = read(os.path.join(".github", "workflows", "ci.yml"))
+        jobs = ci.split("\njobs:\n", 1)[1] if "\njobs:\n" in ci else ""
+        blocks = re.split(r"(?m)^(?=  [\w-]+\s*:\s*$)", jobs)
+        found = [b for b in blocks if re.search(r"(?m)^\s+runs-on\s*:\s*windows-latest\s*$", b)]
+        if not found:
+            self.fail("no job with runs-on: windows-latest")
+        return found[0]
+
+    def test_has_windows_latest_job(self):
+        self.assertRegex(self.windows_job(), r"(?m)^  [\w-]+\s*:\s*$")
+
+    def test_windows_job_forces_autocrlf_true(self):
+        self.assertRegex(strip_comments(self.windows_job()),
+                         r"git config --global core\.autocrlf true")
+
+    def test_windows_job_forces_autocrlf_before_checkout(self):
+        job = strip_comments(self.windows_job())
+        m = re.search(r"git config --global core\.autocrlf true", job)
+        autocrlf = m.start() if m else -1
+        checkout = job.find("actions/checkout")
+        self.assertTrue(0 <= autocrlf < checkout,
+                        "git config --global core.autocrlf true must come before actions/checkout")
+
+    def test_windows_job_uses_setup_python(self):
+        self.assertIn("actions/setup-python", strip_comments(self.windows_job()))
+
+    def test_windows_job_runs_dry_run(self):
+        self.assertIn("./sync.sh --dry-run", strip_comments(self.windows_job()))
+
+    def test_windows_job_runs_bare_sync(self):
+        self.assertRegex(strip_comments(self.windows_job()),
+                         r"(?m)^\s*(?:-\s*)?(?:run\s*:\s*)?\./sync\.sh\s*$")
+
+    def test_windows_job_checks_managed_marker_with_python(self):
+        # `python -` (stdin/heredoc), `python <<` or `python -c`, not python3 (#52 user story 23)
+        self.assertRegex(strip_comments(self.windows_job()),
+                         r"(?m)(?<![\w.-])python\s+(?:-(?=\s|$)|-c\b|<<)")
+
+    def test_windows_job_managed_check_reads_manifest_marker(self):
+        job = strip_comments(self.windows_job())
+        self.assertTrue("manifest.json" in job and "marker" in job,
+                        "the Windows job doesn't check the manifest's managed marker")
+
+    def test_windows_job_never_invokes_python3(self):
+        self.assertNotRegex(strip_comments(self.windows_job()), r"\bpython3\b")
+
+    def test_windows_job_checks_resync_reports_no_change(self):
+        self.assertIn("(installed|updated|removed|added|would|FAIL|WARN|SKIP)",
+                      strip_comments(self.windows_job()))
+
+    def test_windows_job_does_not_run_unit_suite(self):
+        # the suite's Windows port is #51
+        self.assertNotIn("-m unittest", strip_comments(self.windows_job()))
