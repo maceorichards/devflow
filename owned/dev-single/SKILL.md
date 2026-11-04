@@ -11,16 +11,16 @@ Arguments: `$ARGUMENTS`
 
 ## 1. Parse arguments (strictly)
 
-- **Allowed flags:** `--fast` (the default mode, accepted for symmetry with `/dev-multi`), `--rigor`, `--auto`. `--fast` and `--rigor` are mutually exclusive.
+- **Allowed flags:** `--fast` (the default for a new run, accepted for symmetry with `/dev-multi`), `--rigor`, `--auto`. `--fast` and `--rigor` are mutually exclusive.
   - Any other token starting with `-` (for example `--rigour`) → reply `Unknown flag <token>. /dev-single accepts --fast, --rigor, --auto.` and **stop**.
   - Both `--fast` and `--rigor` → say so and stop.
 - **`--auto`:** the user's permission for this run to make the calls it would otherwise stop for. Follow `align`'s [AUTO.md](../align/AUTO.md).
-- A token matching `#<digits>` means **resume or upgrade issue N**. Everything else is the feature description.
+- **Resume or upgrade issue N** only when the sole non-flag argument is `#N`; otherwise the non-flag text is the description, and issue numbers in it are references.
 - No description and no `#N` → ask for a one-line feature description and stop.
-- Before doing anything else, state the mode in one line, for example: `/dev-single, FAST mode, new feature: "<description>"`, `/dev-single, FAST mode, AUTO, new feature: "<description>"` or `/dev-single, RIGOR mode, resuming #42`.
+- State the mode in one line first (on `#N`, once the state file is read), for example: `/dev-single, FAST mode, new feature: "<description>"`, `/dev-single, FAST mode, AUTO, new feature: "<description>"` or `/dev-single, RIGOR mode, resuming #42`.
 
 **Resuming (`#N`):** follow the Resume section of the `align` skill, whose report states the changes below; then make them and continue from the recorded stage.
-- If the state file's `mode` differs from this invocation's mode, update it.
+- A flagless resume keeps the recorded mode (FAST if none or MIXED); only `--fast` or `--rigor` changes it.
 - `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false`.
 - If the run already has tickets (it was a `/dev-multi` run), stop and tell the user to continue with `/dev-multi #N`.
 
