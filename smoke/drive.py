@@ -64,24 +64,25 @@ class Fail(Exception):
 def run(argv, cwd):
     """(exit code, stdout, stderr) of argv, with no shell and no stdin."""
     try:
-        r = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True)
+        r = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                           encoding="utf-8")
     except OSError as e:
         return 127, "", f"{argv[0]}: {e}\n"
     return r.returncode, r.stdout, r.stderr
 
 
 def write(path, text):
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(text)
 
 
 def read(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return f.read()
 
 
 def load_agent(name):
-    with open(AGENTS) as f:
+    with open(AGENTS, encoding="utf-8") as f:
         table = json.load(f)
     if name not in table:
         raise Fail(f"unknown agent {name!r}; agents.json has {', '.join(sorted(table))}")

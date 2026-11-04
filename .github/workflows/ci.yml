@@ -71,3 +71,42 @@ jobs:
         run: python3 -m unittest
         env:
           DEVFLOW_REQUIRE_VENDORS: "1"
+
+  windows-install:
+    # A fresh install under Git Bash with Git for Windows' default line endings.
+    # The unit suite doesn't run here yet (#51).
+    runs-on: windows-latest
+    steps:
+      - name: Force the default Windows line-ending setting
+        run: git config --global core.autocrlf true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5  # provides python, not python3
+        with:
+          python-version: "3.x"
+      - name: Dry run
+        run: ./sync.sh --dry-run
+      - name: Sync
+        run: ./sync.sh
+      - name: Every manifest skill is installed and managed
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          man = json.load(open("manifest.json", encoding="utf-8"))
+          root = os.path.expanduser("~/.claude/skills")
+          missing = [s["name"] for s in man["skills"]
+                     if not os.path.isfile(os.path.join(root, s["name"], man["marker"]))]
+          if missing:
+              sys.exit("not installed with a %s marker in %s: %s" % (man["marker"], root, ", ".join(missing)))
+          print("%d managed skills in %s" % (len(man["skills"]), root))
+          PY
+      - name: Re-sync and dry run report no change
+        # Every status that changes something (or would) starts its line with one of these words.
+        run: |
+          for args in "" "--dry-run"; do
+            out=$(./sync.sh $args)
+            echo "$out"
+            if grep -E '^[[:space:]]*(installed|updated|removed|added|would|FAIL|WARN|SKIP)([[:space:]]|$)' <<<"$out"; then
+              echo "::error::./sync.sh $args reported a change after a full sync"
+              exit 1
+            fi
+          done

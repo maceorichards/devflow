@@ -37,7 +37,11 @@ def check_vendors(root):
 
 
 class SyncSandbox:
-    def __init__(self):
+    def __init__(self, own_vendors=False):
+        """own_vendors=False (default): the sandbox links the real `vendor/`.
+        own_vendors=True: the sandbox gets an empty `vendor/` of its own and a manifest whose
+        vendor urls are the real local clones (no network), so a sync clones them into the
+        sandbox, or the test pre-clones them with `clone_vendors()`."""
         check_vendors(REAL_ROOT)
         self.tmp = tempfile.mkdtemp(prefix="devflow-sandbox-")
         self.repo = os.path.join(self.tmp, "repo")
@@ -50,15 +54,26 @@ class SyncSandbox:
                 shutil.copytree(os.path.join(REAL_ROOT, d), os.path.join(self.repo, d), ignore=ignore)
             for f in _FILES:
                 shutil.copy2(os.path.join(REAL_ROOT, f), os.path.join(self.repo, f))
-            os.symlink(os.path.join(REAL_ROOT, "vendor"), os.path.join(self.repo, "vendor"))
+            if own_vendors:
+                self._own_vendors()
+            else:
+                os.symlink(os.path.join(REAL_ROOT, "vendor"), os.path.join(self.repo, "vendor"))
         except Exception:
             self.close()
             raise
         self.local_file = os.path.join(self.repo, "devflow.local.json")
 
-    def run(self, *args, env=None):
-        """Run sync.sh isolated from the runner's git and XDG settings; `env` overrides on top
-        (a None value deletes the key)."""
+    def _own_vendors(self):
+        path = os.path.join(self.repo, "manifest.json")
+        with open(path, encoding="utf-8") as f:
+            man = json.load(f)
+        for v in man["vendors"].values():
+            v["url"] = os.path.join(REAL_ROOT, v["dir"])
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(man, f, indent=2)
+        os.makedirs(os.path.join(self.repo, "vendor"))
+
+    def _env(self, env=None):
         e = {k: v for k, v in os.environ.items()
              if k != "XDG_CONFIG_HOME" and not k.startswith("GIT_CONFIG")}
         e["GIT_CONFIG_NOSYSTEM"] = "1"
@@ -68,9 +83,45 @@ class SyncSandbox:
                 e.pop(k, None)
             else:
                 e[k] = v
+        return e
+
+    def run(self, *args, env=None):
+        """Run sync.sh isolated from the runner's git and XDG settings; `env` overrides on top
+        (a None value deletes the key)."""
         return subprocess.run(
             [os.path.join(self.repo, "sync.sh")] + list(args),
-            cwd=self.repo, env=e, capture_output=True, text=True)
+            cwd=self.repo, env=self._env(env), capture_output=True, text=True)
+
+    def git(self, *args, cwd=None, check=True):
+        """Run git with the same isolated environment as `run` (the sandbox HOME's
+        `.gitconfig` is the global config)."""
+        return subprocess.run(["git"] + list(args), cwd=cwd or self.repo, env=self._env(),
+                              capture_output=True, text=True, check=check)
+
+    def set_global_git_config(self, key, value):
+        """Set `key` in the sandbox HOME's global git config."""
+        self.git("config", "--global", key, value)
+
+    def vendor_dirs(self):
+        """{source: absolute path of the sandbox's clone of that vendor}."""
+        with open(os.path.join(self.repo, "manifest.json"), encoding="utf-8") as f:
+            vendors = json.load(f)["vendors"]
+        return {src: os.path.join(self.repo, v["dir"]) for src, v in vendors.items()}
+
+    def clone_vendors(self, git_config=None):
+        """own_vendors only: clone every vendor from its manifest url at its vendor.lock commit,
+        under the sandbox's git config plus `git_config` ({key: value}, passed as `git -c`)."""
+        with open(os.path.join(self.repo, "manifest.json"), encoding="utf-8") as f:
+            vendors = json.load(f)["vendors"]
+        with open(os.path.join(self.repo, "vendor.lock"), encoding="utf-8") as f:
+            lock = json.load(f)
+        opts = []
+        for k, v in (git_config or {}).items():
+            opts += ["-c", f"{k}={v}"]
+        for src, v in vendors.items():
+            d = os.path.join(self.repo, v["dir"])
+            self.git(*opts, "clone", "-q", "--no-checkout", v["url"], d)
+            self.git(*opts, "checkout", "-q", lock[src], cwd=d)
 
     def home_path(self, tilde_path):
         if tilde_path == "~":
