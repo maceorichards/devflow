@@ -31,18 +31,18 @@ MD_END = "<!-- devflow:end -->"
 
 
 def sh(args, cwd=None, check=True):
-    r = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    r = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8")
     if check and r.returncode != 0:
         raise RuntimeError(f"{' '.join(args)} failed:\n{r.stdout}{r.stderr}")
     return r
 
 
 def load():
-    with open(MANIFEST) as f:
+    with open(MANIFEST, encoding="utf-8") as f:
         man = json.load(f)
     lock = {}
     if os.path.exists(LOCK):
-        with open(LOCK) as f:
+        with open(LOCK, encoding="utf-8") as f:
             lock = json.load(f)
     return man, lock
 
@@ -76,7 +76,7 @@ def write_atomic(path, text, newline=None):
         mode = 0o666 & ~umask
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=f".{os.path.basename(path)}.")
     try:
-        with os.fdopen(fd, "w", newline=newline) as f:
+        with os.fdopen(fd, "w", encoding="utf-8", newline=newline) as f:
             f.write(text)
         os.chmod(tmp, mode)
         os.replace(tmp, path)
@@ -88,7 +88,7 @@ def write_atomic(path, text, newline=None):
 
 # --------------------------------------------------------------------- frontmatter
 def set_frontmatter(path, skill):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         txt = f.read()
     m = re.match(r"---\n(.*?)\n---\n", txt, re.S)
     if not m:
@@ -104,7 +104,7 @@ def set_frontmatter(path, skill):
     if skill["tier"] == "slash":
         out.append("disable-model-invocation: true")
     new = "---\n" + "\n".join(out) + "\n---\n" + txt[m.end():]
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(new)
 
 
@@ -113,7 +113,7 @@ def set_codex_policy(stage, skill):
     path = os.path.join(stage, "agents", "openai.yaml")
     lines = []
     if os.path.exists(path):
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             lines = f.read().split("\n")
     # drop any top-level policy: block (that line and its indented children)
     kept, skipping = [], False
@@ -133,7 +133,7 @@ def set_codex_policy(stage, skill):
             os.remove(path)
         return
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text + "\n")
 
 
@@ -165,13 +165,13 @@ def build_skill(man, skill, stage_root):
             for fn in files:
                 if fn.endswith((".md", ".yaml")):
                     p = os.path.join(dp, fn)
-                    with open(p) as f:
+                    with open(p, encoding="utf-8") as f:
                         t = f.read()
                     new = t
                     for old, rep in subs:
                         new = new.replace(old, rep)
                     if new != t:
-                        with open(p, "w") as f:
+                        with open(p, "w", encoding="utf-8", newline="\n") as f:
                             f.write(new)
     set_frontmatter(os.path.join(stage, "SKILL.md"), skill)
     set_codex_policy(stage, skill)
@@ -200,7 +200,7 @@ def install(man, skill, stage, lock, dry, dest_root):
     if dry:
         return f"would {action}"
     os.makedirs(dest_root, exist_ok=True)
-    with open(os.path.join(stage, marker), "w") as f:
+    with open(os.path.join(stage, marker), "w", encoding="utf-8", newline="\n") as f:
         src = skill["source"]
         f.write(json.dumps({"source": src, "path": skill["path"],
                             "commit": lock.get(src, "owned"), "tier": skill["tier"]}) + "\n")
@@ -288,7 +288,7 @@ def git_ignore_target():
     try:
         r = subprocess.run(["git", "config", "--global", "--includes", "--type=path", "--get",
                             "core.excludesFile"],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8")
     except OSError as e:
         raise ValueError(f"could not read core.excludesFile ({e})")
     if r.returncode not in (0, 1):
@@ -325,12 +325,12 @@ def unreadable_skip(tilde_path):
 
 def sync_instructions(tilde_path, dry):
     path = os.path.expanduser(tilde_path)
-    with open(os.path.join(ROOT, "global", "claude-md-section.md")) as f:
+    with open(os.path.join(ROOT, "global", "claude-md-section.md"), encoding="utf-8") as f:
         section = f.read().replace("{{clone}}", clone_path()).strip() + "\n"
     cur = ""
     if os.path.exists(path):
         try:
-            with open(path, newline="") as f:
+            with open(path, encoding="utf-8", newline="") as f:
                 cur = f.read()
         except (UnicodeDecodeError, OSError):
             return unreadable_skip(tilde_path)
@@ -356,7 +356,7 @@ def remove_instructions(tilde_path, dry):
     if not os.path.isfile(path):
         return None
     try:
-        with open(path, newline="") as f:
+        with open(path, encoding="utf-8", newline="") as f:
             cur = f.read()
     except (UnicodeDecodeError, OSError):
         return unreadable_skip(tilde_path)
@@ -379,7 +379,7 @@ def remove_instructions(tilde_path, dry):
 
 
 def sync_git_ignore(dry):
-    with open(os.path.join(ROOT, "global", "git-ignore-lines")) as f:
+    with open(os.path.join(ROOT, "global", "git-ignore-lines"), encoding="utf-8") as f:
         want = [l.strip() for l in f if l.strip() and not l.startswith("#")]
     manual = "add these lines yourself: " + ", ".join(want)
     try:
@@ -390,7 +390,7 @@ def sync_git_ignore(dry):
     missing = want  # nothing is known to be present until the file has been read
     action = "read"
     try:
-        cur = open(target).read() if os.path.exists(target) else ""
+        cur = open(target, encoding="utf-8").read() if os.path.exists(target) else ""
         have = {l.strip() for l in cur.splitlines()}
         missing = [l for l in want if l not in have]
         if not missing:
@@ -398,7 +398,7 @@ def sync_git_ignore(dry):
         if not dry:
             action = "write"
             os.makedirs(os.path.dirname(target), exist_ok=True)
-            with open(target, "a") as f:
+            with open(target, "a", encoding="utf-8") as f:
                 if cur and not cur.endswith("\n"):
                     f.write("\n")
                 if "# devflow" not in cur:
@@ -429,7 +429,7 @@ def selected_providers(man):
     if not os.path.exists(LOCAL):
         return ["claude"]
     try:
-        with open(LOCAL) as f:
+        with open(LOCAL, encoding="utf-8") as f:
             names = json.load(f)["providers"]
     except (OSError, ValueError, KeyError, TypeError):
         names = None
@@ -567,7 +567,7 @@ def update(man, lock):
 
 
 def save_lock(lock):
-    with open(LOCK, "w") as f:
+    with open(LOCK, "w", encoding="utf-8", newline="\n") as f:
         json.dump(lock, f, indent=2)
         f.write("\n")
 
@@ -599,9 +599,10 @@ def edit(man, lock, name):
 def save(man, name):
     skill = find_skill(man, name)
     work = os.path.join(ROOT, ".patch-work", name)
-    r = subprocess.run(["diff", "-ruN", "a", "b"], cwd=work, capture_output=True, text=True)
+    r = subprocess.run(["diff", "-ruN", "a", "b"], cwd=work, capture_output=True, text=True,
+                       encoding="utf-8")
     patch_rel = skill.get("patch") or f"patches/{name}.patch"
-    with open(os.path.join(ROOT, patch_rel), "w") as f:
+    with open(os.path.join(ROOT, patch_rel), "w", encoding="utf-8", newline="\n") as f:
         f.write(r.stdout)
     if not skill.get("patch"):
         print(f"Add \"patch\": \"{patch_rel}\" to {name} in manifest.json")
