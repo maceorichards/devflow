@@ -657,11 +657,53 @@ def uninstall_skills(man, dry, failures):
         if not names:
             print("  nothing to remove")
         for d in names:
-            line = remove_managed(root, d, None, dry, failures)
-            print("  " + line)
-            if not line.startswith("FAIL"):
+            before = len(failures)
+            print("  " + remove_managed(root, d, None, dry, failures))
+            if len(failures) == before:
                 count += 1
     return count
+
+
+def uninstall_instructions(man, dry):
+    """Remove the devflow section from every provider's instructions file (#63, ticket #64).
+    Returns (sections removed or that would be, SKIPs left for the user to deal with)."""
+    print("instructions")
+    removed, skips, seen = 0, 0, {}
+    for p in man["providers"]:
+        f = p.get("instructions")
+        if not f:
+            continue
+        fid = folder_id(os.path.expanduser(f))
+        if f in seen or (fid is not None and fid in seen):
+            first = seen[f] if f in seen else seen[fid]
+            print(f"  SKIP {f}: same file as {first}, left untouched")
+            continue
+        seen[f] = f
+        line = remove_instructions(f, dry)
+        fid = folder_id(os.path.expanduser(f))  # after: the atomic rewrite gives the file a new inode
+        if fid is not None:
+            seen[fid] = f
+        if line is None:
+            continue
+        print("  " + line)
+        if line.startswith(("removed", "would remove")):
+            removed += 1
+        elif line.startswith("SKIP"):
+            skips += 1
+    return removed, skips
+
+
+def uninstall_notes():
+    print("notes")
+    with open(os.path.join(ROOT, "global", "git-ignore-lines"), encoding="utf-8") as f:
+        want = ", ".join(l.strip() for l in f if l.strip() and not l.startswith("#"))
+    try:
+        print(f"  git ignore lines kept in {tilde(git_ignore_target())}: {want}")
+    except ValueError as e:
+        print(f"  git ignore lines kept (could not locate the git ignore file: {e}): {want}")
+    print("  Cursor: delete the devflow section from Customize \u2192 Rules if you added it")
+    print("  kept: this clone (devflow.local.json, vendor/) and every project's .devflow/ and .worktrees/")
+    print("  to reinstall: ./sync.sh")
 
 
 def uninstall(argv):
@@ -672,8 +714,13 @@ def uninstall(argv):
         man = json.load(f)
     print("devflow uninstall" + (" (dry run)" if dry else ""))
     failures = []
-    uninstall_skills(man, dry, failures)
-    # Task 2 (#64): instructions block, notes block and the other closing lines go here.
+    skills = uninstall_skills(man, dry, failures)
+    sections, skips = uninstall_instructions(man, dry)
+    uninstall_notes()
+    if not skills and not sections:
+        print("nothing to remove")
+    if skips:
+        print(f"{skips} item(s) left for you to remove by hand (see the SKIP lines above)")
     if failures:
         print(f"\n{len(failures)} folder(s) could not be removed")
         sys.exit(1)
