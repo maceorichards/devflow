@@ -33,11 +33,14 @@ def _tracked_files(sb, clone):
 
 
 def _files_with_cr(sb, clone):
+    """Tracked text files containing a CR. Binary files (a NUL byte, git's own heuristic) are
+    skipped: line endings don't apply to them, and e.g. every PNG's signature holds a CR."""
     bad = []
     for p in _tracked_files(sb, clone):
         with open(p, "rb") as f:
-            if b"\r" in f.read():
-                bad.append(os.path.relpath(p, clone))
+            data = f.read()
+        if b"\r" in data and b"\0" not in data:
+            bad.append(os.path.relpath(p, clone))
     return bad
 
 
