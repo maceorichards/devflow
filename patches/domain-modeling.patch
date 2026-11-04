@@ -1,6 +1,6 @@
 diff -ruN a/ADR-FORMAT.md b/ADR-FORMAT.md
---- a/ADR-FORMAT.md	2026-10-21 14:32:12
-+++ b/ADR-FORMAT.md	2026-10-21 16:51:15
+--- a/ADR-FORMAT.md	2026-10-24 03:21:40
++++ b/ADR-FORMAT.md	2026-11-04 01:16:47
 @@ -1,6 +1,6 @@
  # ADR Format
  
@@ -19,14 +19,14 @@ diff -ruN a/ADR-FORMAT.md b/ADR-FORMAT.md
  ## When to offer an ADR
  
 diff -ruN a/GLOSSARY-FORMAT.md b/GLOSSARY-FORMAT.md
---- a/GLOSSARY-FORMAT.md	2026-10-21 14:32:12
-+++ b/GLOSSARY-FORMAT.md	2026-10-21 16:51:15
+--- a/GLOSSARY-FORMAT.md	2026-10-24 03:21:40
++++ b/GLOSSARY-FORMAT.md	2026-11-04 01:16:50
 @@ -31,7 +31,7 @@
  
  ## Single vs multi-context repos
  
 -**Single context (most repos):** One `GLOSSARY.md` at the repo root.
-+**Single context (most repos):** One `docs/GLOSSARY.md` (devflow layout). Its top heading is the repo name, never a feature-specific context name.
++**Single context (most repos):** One `docs/GLOSSARY.md` (devflow layout). When creating it, make its top heading the GitHub repo name (`gh repo view --json name -q .name`), never a feature-specific context name. Never rename an existing heading.
  
  **Multiple contexts:** A `GLOSSARY-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
  
@@ -41,8 +41,8 @@ diff -ruN a/GLOSSARY-FORMAT.md b/GLOSSARY-FORMAT.md
  
  When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 14:32:12
-+++ b/SKILL.md	2026-10-21 16:52:24
+--- a/SKILL.md	2026-10-24 03:21:40
++++ b/SKILL.md	2026-11-04 01:16:47
 @@ -13,11 +13,11 @@
  
  ```

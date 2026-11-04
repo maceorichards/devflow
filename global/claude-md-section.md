@@ -17,6 +17,7 @@ Rules:
   - run state: `runs/iss-N.json`
 
   Give subagents absolute paths, never pasted content.
+- **Working directory:** workflows run from the main checkout and reach a worktree with `git -C` or a subshell `(cd … && …)`, never a bare `cd`.
 - **Repo conventions** (tracker, domain docs): `<repo>/.devflow/agents/`.
 - **Domain docs:** the glossary is `docs/GLOSSARY.md` and ADRs are in `docs/adr/`. Any skill that mentions `GLOSSARY.md` means `docs/GLOSSARY.md`.
 - **Test reporting:** name every failure, and separate new failures from pre-existing ones.
