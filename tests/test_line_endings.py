@@ -121,6 +121,15 @@ class CrlfVendorClonesTest(_Base):
         got = {src: _local_autocrlf(self.sb, d) for src, d in self.sb.vendor_dirs().items()}
         self.assertEqual(got, {src: "false" for src in got})
 
+    def test_crlf_vendor_clones_installed_skills_are_lf(self):
+        # #52 user story 9: installed skill files are LF, byte-for-byte as on macOS.
+        sb = self.sb
+        r = sb.run()
+        root = sb.home_path(CLAUDE_SKILLS)
+        bad = [os.path.join(n, p) for n in sorted(sb.managed_skills(CLAUDE_SKILLS))
+               for p, data in _tree(os.path.join(root, n)).items() if b"\r" in data]
+        self.assertEqual(bad, [], r.stdout + r.stderr)
+
     def test_crlf_vendor_clones_resync_reports_no_change(self):
         # characterization: passes today (nothing changes the clones between the two syncs).
         self.sb.run()
