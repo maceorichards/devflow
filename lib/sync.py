@@ -66,10 +66,14 @@ def ensure_vendor(man, src, sha=None):
         sh(["git", "clone", "-q", "-c", "core.autocrlf=false", man["vendors"][src]["url"], d])
     elif sh(["git", "config", "--get", "core.autocrlf"], cwd=d, check=False).stdout.strip() == "true":
         # A clone checked out with CRLF (Windows' default): make it LF once. Vendor clones
-        # are never edited, so dropping the index and resetting loses nothing.
+        # are never edited, so dropping the index and resetting loses nothing. The setting is
+        # persisted only after the reset succeeds: if it fails (a locked file), the trigger
+        # still reads true and the next sync retries (on an index the failed reset left empty,
+        # hence --ignore-unmatch).
+        sh(["git", "-c", "core.autocrlf=false", "rm", "-q", "--cached", "-r", "--ignore-unmatch", "."],
+           cwd=d)
+        sh(["git", "-c", "core.autocrlf=false", "reset", "-q", "--hard"], cwd=d)
         sh(["git", "config", "--local", "core.autocrlf", "false"], cwd=d)
-        sh(["git", "rm", "-q", "--cached", "-r", "."], cwd=d)
-        sh(["git", "reset", "-q", "--hard"], cwd=d)
     if sha:
         cur = sh(["git", "rev-parse", "HEAD"], cwd=d).stdout.strip()
         if cur != sha:
