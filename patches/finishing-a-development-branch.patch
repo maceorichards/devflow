@@ -1,11 +1,11 @@
 diff -ruN a/SKILL.md b/SKILL.md
 --- a/SKILL.md	2026-10-24 03:21:39
-+++ b/SKILL.md	2026-11-04 01:17:02
++++ b/SKILL.md	2026-11-04 01:33:20
 @@ -35,6 +35,8 @@
  WORKTREE_PATH=$(git rev-parse --show-toplevel)
  ```
  
-+Devflow callers run this block in a subshell, `(cd "$WT" && …)`, so the session stays in the main checkout.
++Devflow callers run Steps 1–2 in a subshell, `(cd <feature-worktree> && … && echo "$GIT_DIR $GIT_COMMON $WORKTREE_PATH")`, keep the printed values, and stay in the main checkout.
 +
  This determines which menu to show and how cleanup works:
  

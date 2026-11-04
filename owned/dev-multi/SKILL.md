@@ -14,18 +14,18 @@ Arguments: `$ARGUMENTS`
 - **Allowed flags:** `--fast`, `--rigor`, `--auto`. `--fast` and `--rigor` are mutually exclusive.
   - Any other token starting with `-` → reply `Unknown flag <token>. /dev-multi accepts --fast, --rigor, --auto.` and **stop**.
   - Both `--fast` and `--rigor` → say so and stop.
-- **Resume or upgrade issue N** only when the only non-flag argument is a single `#N`. Otherwise all non-flag text is the feature description, and issue numbers in it are references.
+- **Resume or upgrade issue N** only when the sole non-flag argument is `#N`; otherwise the non-flag text is the description, and issue numbers in it are references.
 - No description and no `#N` → ask for a one-line feature description and stop.
 - **Mode:**
   - `--fast` → FAST: every ticket's lane is pre-filled `fast`.
   - `--rigor` → RIGOR: every ticket's lane is pre-filled `rigor`.
-  - Neither → MIXED for a new run (lanes proposed per ticket); on `#N`, the recorded mode.
+  - Neither → MIXED (lanes proposed per ticket) for a new run or upgrade; a `#N` resume keeps its recorded mode (MIXED if none).
 - **`--auto`:** the user's permission for this run to make the calls it would otherwise stop for. Follow `align`'s [AUTO.md](../align/AUTO.md).
-- State the mode in one line before doing anything else, adding `, AUTO` when auto mode is on.
+- State the mode in one line first (on `#N`, once the state file is read), adding `, AUTO` when auto mode is on.
 
-**Resuming (`#N`):** follow the Resume section of the `align` skill, whose report states the changes below; then make them and continue from the recorded stage. The mode changes only when `--fast` or `--rigor` is given, and re-labels only tickets still `open`. `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false`.
+**Resuming (`#N`):** follow the Resume section of the `align` skill, whose report states the changes below; then make them and continue from the recorded stage. Only `--fast` or `--rigor` changes the mode, re-labelling only tickets still `open`. `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false`.
 
-**Upgrading from `/dev-single`:** if the state file says `dev-single` and no build has started, switch it to `dev-multi` (mode MIXED with no flag, else the flag's mode) and continue at step 3.
+**Upgrading from `/dev-single`:** if the state file says `dev-single` and no build has started, switch it to `dev-multi` (MIXED with no flag) and continue at step 3.
 
 ## 2. Align
 

@@ -15,12 +15,12 @@ Arguments: `$ARGUMENTS`
   - Any other token starting with `-` (for example `--rigour`) → reply `Unknown flag <token>. /dev-single accepts --fast, --rigor, --auto.` and **stop**.
   - Both `--fast` and `--rigor` → say so and stop.
 - **`--auto`:** the user's permission for this run to make the calls it would otherwise stop for. Follow `align`'s [AUTO.md](../align/AUTO.md).
-- **Resume or upgrade issue N** only when the only non-flag argument is a single `#N`. Otherwise all non-flag text is the feature description, and issue numbers in it are references.
+- **Resume or upgrade issue N** only when the sole non-flag argument is `#N`; otherwise the non-flag text is the description, and issue numbers in it are references.
 - No description and no `#N` → ask for a one-line feature description and stop.
-- Before doing anything else, state the mode in one line, for example: `/dev-single, FAST mode, new feature: "<description>"`, `/dev-single, FAST mode, AUTO, new feature: "<description>"` or `/dev-single, RIGOR mode, resuming #42`.
+- State the mode in one line first (on `#N`, once the state file is read), for example: `/dev-single, FAST mode, new feature: "<description>"`, `/dev-single, FAST mode, AUTO, new feature: "<description>"` or `/dev-single, RIGOR mode, resuming #42`.
 
 **Resuming (`#N`):** follow the Resume section of the `align` skill, whose report states the changes below; then make them and continue from the recorded stage.
-- A flagless resume keeps the recorded mode; only `--fast` or `--rigor` changes it.
+- A flagless resume keeps the recorded mode (FAST if none or MIXED); only `--fast` or `--rigor` changes it.
 - `--auto` turns auto mode on from the current stage. If the state has `auto: true` and this invocation lacks `--auto`, reset it to `false`.
 - If the run already has tickets (it was a `/dev-multi` run), stop and tell the user to continue with `/dev-multi #N`.
 
