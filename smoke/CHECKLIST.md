@@ -51,12 +51,15 @@ What each scenario of a [smoke run](README.md) should show. Re-run after changin
 ## 5. Resume `/dev-multi #N --rigor` in a fresh session (new label)
 - [ ] Resume report: parent #N, stage, mode, ticket table, next step, before any state change
 - [ ] Mode switch re-labels open tickets only; pending plan reused
+- [ ] Flagless `/dev-multi #N` resume keeps the recorded mode
+- [ ] Flagless `/dev-multi #N` on a `/dev-single` run (no build yet) upgrades it as MIXED
 - [ ] "Go auto from here" at the plan pause sets `auto` (`auto_source: chat`); the rest runs unattended
 - [ ] Opened outside the repo: asks for the repo path, doesn't search the disk
 
 ## 6. Flags
 - [ ] `/dev-single --rigour <desc>` refused with `Unknown flag --rigour. /dev-single accepts --fast, --rigor, --auto.`; nothing created
 - [ ] `/dev-single <desc> --fast --rigor` refused; `--auto-approve-plans` is an unknown flag
+- [ ] `/dev-single <desc citing #12>` starts a new run; `#12` is a reference
 
 ## 7. `--auto`
 - [ ] `/dev-single <desc> --fast --auto`: mode line says AUTO; no questions until the PR opens
