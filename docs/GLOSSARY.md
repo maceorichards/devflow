@@ -8,6 +8,10 @@ An opinionated set of agent skills and workflows, built from upstream skill repo
 An agent tool that devflow installs into, such as Claude Code, Codex CLI, Gemini CLI or Cursor: a skills folder plus, where the tool reads one from disk, a global instructions file. Not the company whose model the tool runs.
 _Avoid_: Target, harness, model provider
 
+**Managed skill**:
+A skill folder in a provider's skills folder that devflow installed and marked as its own. A sync updates or removes only managed skills, and uninstall removes all of them; any other folder is left alone, even one with the same name.
+_Avoid_: Installed skill, devflow skill
+
 **Agent docs**:
 The git-ignored working material agents write in a project's main checkout (specs, plans, run state and per-repo conventions), kept in `.devflow/`.
 _Avoid_: Agent files, working docs
