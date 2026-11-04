@@ -30,8 +30,15 @@ MD_START = "<!-- devflow:start"
 MD_END = "<!-- devflow:end -->"
 
 
-def sh(args, cwd=None, check=True):
-    r = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8")
+def sh(args, cwd=None, check=True, input=None):
+    """Run a command; its stdout and stderr come back as UTF-8 text. `input` (text) goes to
+    stdin as UTF-8 bytes, because a text-mode stdin turns LF into CRLF on Windows."""
+    if input is None:
+        r = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8")
+    else:
+        r = subprocess.run(args, cwd=cwd, input=input.encode("utf-8"), capture_output=True)
+        r.stdout, r.stderr = (b.decode("utf-8", "replace").replace("\r\n", "\n")
+                              for b in (r.stdout, r.stderr))
     if check and r.returncode != 0:
         raise RuntimeError(f"{' '.join(args)} failed:\n{r.stdout}{r.stderr}")
     return r
@@ -55,7 +62,14 @@ def ensure_vendor(man, src, sha=None):
     d = vendor_dir(man, src)
     if not os.path.isdir(os.path.join(d, ".git")):
         print(f"cloning {src} …")
-        sh(["git", "clone", "-q", man["vendors"][src]["url"], d])
+        # -c on clone checks out LF and records core.autocrlf=false in the clone's config.
+        sh(["git", "clone", "-q", "-c", "core.autocrlf=false", man["vendors"][src]["url"], d])
+    elif sh(["git", "config", "--get", "core.autocrlf"], cwd=d, check=False).stdout.strip() == "true":
+        # A clone checked out with CRLF (Windows' default): make it LF once. Vendor clones
+        # are never edited, so dropping the index and resetting loses nothing.
+        sh(["git", "config", "--local", "core.autocrlf", "false"], cwd=d)
+        sh(["git", "rm", "-q", "--cached", "-r", "."], cwd=d)
+        sh(["git", "reset", "-q", "--hard"], cwd=d)
     if sha:
         cur = sh(["git", "rev-parse", "HEAD"], cwd=d).stdout.strip()
         if cur != sha:
@@ -138,6 +152,15 @@ def set_codex_policy(stage, skill):
 
 
 # --------------------------------------------------------------------- build
+def apply_patch(rel, cwd):
+    """`git apply` the patch at ROOT/rel in cwd. The patch is read as UTF-8 with CRLF turned
+    into LF, and core.autocrlf is off, so neither the checkout nor git config adds a CR."""
+    with open(os.path.join(ROOT, rel), encoding="utf-8", newline="") as f:
+        text = f.read().replace("\r\n", "\n")
+    return sh(["git", "-c", "core.autocrlf=false", "apply", "--whitespace=nowarn", "-p1"],
+              cwd=cwd, check=False, input=text)
+
+
 def build_skill(man, skill, stage_root):
     """Return (staged_dir, error_or_None)."""
     stage = os.path.join(stage_root, skill["name"])
@@ -149,8 +172,7 @@ def build_skill(man, skill, stage_root):
         return stage, f"source missing: {src}"
     shutil.copytree(src, stage)
     if skill.get("patch"):
-        patch = os.path.join(ROOT, skill["patch"])
-        r = sh(["git", "apply", "--whitespace=nowarn", "-p1", patch], cwd=stage, check=False)
+        r = apply_patch(skill["patch"], stage)
         if r.returncode != 0:
             return stage, f"patch failed: {skill['patch']}\n{r.stderr.strip()}"
     # Text rewrites on every .md and .yaml file, after the patch: the vendor's prefix is
@@ -591,8 +613,7 @@ def edit(man, lock, name):
     shutil.copytree(src, os.path.join(work, "a"))
     shutil.copytree(src, os.path.join(work, "b"))
     if skill.get("patch") and os.path.exists(os.path.join(ROOT, skill["patch"])):
-        sh(["git", "apply", "--whitespace=nowarn", "-p1", os.path.join(ROOT, skill["patch"])],
-           cwd=os.path.join(work, "b"), check=False)
+        apply_patch(skill["patch"], os.path.join(work, "b"))
     print(f"Edit {work}/b (upstream + current patch), then run: sync.sh save {name}")
 
 
