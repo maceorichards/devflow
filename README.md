@@ -8,6 +8,8 @@ Use it as is, or fork it to choose your own skills: edit `manifest.json`, then r
 
 **Prerequisites:** Python 3.9+, git, the GitHub CLI `gh` signed in (`gh auth login`), and one supported provider (see [Providers](#providers)). GitHub is the only tracker the workflows support.
 
+**Windows:** run everything from Git Bash, with Python 3.9+ from python.org or the Microsoft Store.
+
 ```bash
 git clone https://github.com/maceorichards/devflow.git
 cd devflow
@@ -16,6 +18,8 @@ cd devflow
 ```
 
 The dry run clones the upstream skill repos into `vendor/` at the locked commits and shows what would change, writing nothing outside the clone. The second command builds and installs for Claude Code; to pick other providers, run `./sync.sh providers <list>` instead. Then, in each project, run `/setup-devflow-skills` once (see [Workflows](#workflows)).
+
+If you cloned on Windows before the line-ending fix, bash rejects `sync.sh`. Repair the clone once: commit or stash your changes, then run `git rm -rq --cached . && git reset -q --hard`, or clone again. `devflow.local.json` and `vendor/` are git-ignored and aren't affected.
 
 What the sync edits outside the clone:
 - Each selected provider's skills folder (e.g. `~/.claude/skills`): only folders it marks with `.managed-by-devflow`. A folder of the same name without the marker is skipped.
