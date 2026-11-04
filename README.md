@@ -26,6 +26,10 @@ What the sync edits outside the clone:
 - The devflow section of each provider's instructions file (e.g. `~/.claude/CLAUDE.md`), between `devflow` markers. The rest of the file is left alone.
 - The git ignore file git reads, to which it appends the lines in `global/git-ignore-lines` (`.devflow/`, `.worktrees/`, …): the global `core.excludesFile`, else `$XDG_CONFIG_HOME/git/ignore`, else `~/.config/git/ignore`. A system-level `core.excludesFile` is not consulted.
 
+**Uninstall:** run `./sync.sh uninstall --dry-run` to see what would be removed, then `./sync.sh uninstall`. It removes every managed skill from every provider's skills folder and the devflow section from every provider's instructions file. It keeps the git ignore lines (you can delete them yourself from the file it names), `devflow.local.json`, `vendor/`, and each project's `.devflow/` and `.worktrees/`. Then delete the clone.
+
+For a clean reinstall, run `./sync.sh uninstall`, then `./sync.sh`.
+
 ## Workflows
 
 | Command | Use for |
@@ -98,6 +102,7 @@ The building blocks can't be slash-only: `disable-model-invocation` also stops o
 ./sync.sh providers <list> [--dry-run] # choose providers (claude,codex,gemini,cursor), then sync
 ./sync.sh edit <skill> # prepare .patch-work/<skill>/{a,b} to change a patch; edit b/
 ./sync.sh save <skill> # write patches/<skill>.patch from .patch-work/<skill>, then ./sync.sh
+./sync.sh uninstall [--dry-run] # remove every managed skill and the devflow sections
 python3 -m unittest    # run the test suite
 ```
 
