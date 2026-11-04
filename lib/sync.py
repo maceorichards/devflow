@@ -11,6 +11,7 @@ Usage (via ../sync.sh):
   sync.sh providers <a,b> --dry-run   preview that choice, write nothing
   sync.sh edit <skill>    prepare .patch-work/<skill>/{a,b} to change a patch (edit b/)
   sync.sh save <skill>    write patches/<skill>.patch from .patch-work/<skill>
+  sync.sh uninstall [--dry-run]   remove every managed skill and devflow section
 """
 import filecmp
 import json
@@ -252,19 +253,58 @@ def managed_dirs(man, root):
             and os.path.exists(os.path.join(root, d, man["marker"]))]
 
 
-def remove_managed(root, d, why, dry, failures):
+GONE = ".devflow-gone"
+
+
+def delete_marker_last(path, marker):
+    """Delete a managed folder, its marker last: a delete that fails partway leaves
+    a folder that still carries the marker, so a rerun still finds it."""
+    with os.scandir(path) as it:
+        entries = list(it)
+    for e in entries:
+        if e.name == marker:
+            continue
+        if e.is_dir(follow_symlinks=False):
+            shutil.rmtree(e.path)
+        else:
+            os.unlink(e.path)
+    if os.path.lexists(os.path.join(path, marker)):
+        os.unlink(os.path.join(path, marker))
+    os.rmdir(path)
+
+
+def remove_managed(root, d, why, dry, failures, marker):
+    """Remove the managed folder <root>/<d> without ever leaving a folder named <d>
+    that has lost its marker (a rerun would miss it, a sync would SKIP it as not
+    managed). It is renamed to a free `<d>.devflow-gone[-N]` sibling first, so a
+    read-only <root> fails at the rename with nothing touched. The delete takes the
+    marker last; if it fails partway the folder, marker still in it, goes back to <d>."""
     if not dry:
+        path = os.path.join(root, d)
+        gone, n = path + GONE, 0
+        while os.path.lexists(gone):
+            n += 1
+            gone = f"{path}{GONE}-{n}"
         try:
-            shutil.rmtree(os.path.join(root, d))
+            os.rename(path, gone)
+            try:
+                delete_marker_last(gone, marker)
+            except OSError:
+                if os.path.lexists(os.path.join(gone, marker)):
+                    try:
+                        os.rename(gone, path)
+                    except OSError:
+                        pass  # stays as a marked leftover, which a rerun removes
+                raise
         except OSError as e:
             failures.append((d, f"could not remove: {e}"))
             return f"FAIL      {d}: could not remove: {e}"
-    return f"{'would remove' if dry else 'removed'} {d} ({why})"
+    return f"{'would remove' if dry else 'removed'} {d}" + (f" ({why})" if why else "")
 
 
 def prune(man, dest_root, dry, failures):
     names = {s["name"] for s in man["skills"]}
-    return [remove_managed(dest_root, d, "no longer in manifest", dry, failures)
+    return [remove_managed(dest_root, d, "no longer in manifest", dry, failures, man["marker"])
             for d in managed_dirs(man, dest_root) if d not in names]
 
 
@@ -288,7 +328,7 @@ def cleanup(man, tilde_dir, install_ids, dry, failures):
     root = os.path.expanduser(tilde_dir)
     if folder_id(root) in install_ids:
         return ["SKIP (same folder as an install folder)"]
-    return [remove_managed(root, d, "provider not selected", dry, failures)
+    return [remove_managed(root, d, "provider not selected", dry, failures, man["marker"])
             for d in managed_dirs(man, root)]
 
 
@@ -634,7 +674,100 @@ def save(man, name):
     print(f"wrote {patch_rel} ({r.stdout.count(chr(10))} lines). Run sync.sh to install.")
 
 
+def uninstall_skills(man, dry, failures):
+    """Clear managed skills from every distinct skills folder (#63, ticket #64).
+    Returns how many were removed, or would be."""
+    count, seen_dirs, seen_ids = 0, set(), {}
+    for p in man["providers"]:
+        tdir = p["skills_dir"]
+        if tdir in seen_dirs:
+            continue
+        seen_dirs.add(tdir)
+        print(tdir)
+        root = os.path.expanduser(tdir)
+        fid = folder_id(root)
+        if fid is not None and fid in seen_ids:
+            print(f"  SKIP (same folder as {seen_ids[fid]})")
+            continue
+        if fid is not None:
+            seen_ids[fid] = tdir
+        names = managed_dirs(man, root)
+        # crash leftovers of a build in progress carry the marker too and are matched above
+        if not names:
+            print("  nothing to remove")
+        for d in names:
+            before = len(failures)
+            print("  " + remove_managed(root, d, None, dry, failures, man["marker"]))
+            if len(failures) == before:
+                count += 1
+    return count
+
+
+def uninstall_instructions(man, dry):
+    """Remove the devflow section from every provider's instructions file (#63, ticket #64).
+    Returns (sections removed or that would be, SKIPs left for the user to deal with)."""
+    print("instructions")
+    removed, skips, seen = 0, 0, {}
+    for p in man["providers"]:
+        f = p.get("instructions")
+        if not f:
+            continue
+        fid = folder_id(os.path.expanduser(f))
+        if f in seen or (fid is not None and fid in seen):
+            first = seen[f] if f in seen else seen[fid]
+            print(f"  SKIP {f}: same file as {first}, left untouched")
+            continue
+        seen[f] = f
+        line = remove_instructions(f, dry)
+        fid = folder_id(os.path.expanduser(f))  # after: the atomic rewrite gives the file a new inode
+        if fid is not None:
+            seen[fid] = f
+        if line is None:
+            continue
+        print("  " + line)
+        if line.startswith(("removed", "would remove")):
+            removed += 1
+        elif line.startswith("SKIP"):
+            skips += 1
+    return removed, skips
+
+
+def uninstall_notes():
+    print("notes")
+    with open(os.path.join(ROOT, "global", "git-ignore-lines"), encoding="utf-8") as f:
+        want = ", ".join(l.strip() for l in f if l.strip() and not l.startswith("#"))
+    try:
+        print(f"  git ignore lines kept in {tilde(git_ignore_target())}: {want}")
+    except ValueError as e:
+        print(f"  git ignore lines kept (could not locate the git ignore file: {e}): {want}")
+    print("  Cursor: delete the devflow section from Customize \u2192 Rules if you added it")
+    print("  kept: this clone (devflow.local.json, vendor/) and every project's .devflow/ and .worktrees/")
+    print("  to reinstall: ./sync.sh")
+
+
+def uninstall(argv):
+    if argv not in ([], ["--dry-run"]):
+        sys.exit(__doc__)
+    dry = bool(argv)
+    with open(MANIFEST, encoding="utf-8") as f:
+        man = json.load(f)
+    print("devflow uninstall" + (" (dry run)" if dry else ""))
+    failures = []
+    skills = uninstall_skills(man, dry, failures)
+    sections, skips = uninstall_instructions(man, dry)
+    uninstall_notes()
+    if not skills and not sections:
+        print("nothing to remove")
+    if skips:
+        print(f"{skips} item(s) left for you to remove by hand (see the SKIP lines above)")
+    if failures:
+        print(f"\n{len(failures)} folder(s) could not be removed")
+        sys.exit(1)
+
+
 def main(argv):
+    if argv[:1] == ["uninstall"]:
+        return uninstall(argv[1:])
     man, lock = load()
     if argv[:1] == ["edit"] and len(argv) == 2:
         return edit(man, lock, argv[1])
