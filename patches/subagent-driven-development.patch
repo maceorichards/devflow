@@ -1,6 +1,6 @@
 diff -ruN a/SKILL.md b/SKILL.md
---- a/SKILL.md	2026-10-21 21:16:54
-+++ b/SKILL.md	2026-10-24 01:24:35
+--- a/SKILL.md	2026-10-24 03:21:39
++++ b/SKILL.md	2026-11-04 01:17:02
 @@ -32,30 +32,8 @@
  
  ## When to Use
@@ -72,7 +72,7 @@ diff -ruN a/SKILL.md b/SKILL.md
  Implementer subagents report one of four statuses. Handle each appropriately:
  
 -**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
-+**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD "" TEST_COMMIT`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
++**DONE:** In a subshell, `(cd <dir> && …)`, never a bare `cd`, generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD "" TEST_COMMIT`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
  
  **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
  
@@ -128,8 +128,8 @@ diff -ruN a/SKILL.md b/SKILL.md
  ## Common Rationalizations
  
 diff -ruN a/implementer-prompt.md b/implementer-prompt.md
---- a/implementer-prompt.md	2026-10-21 21:16:54
-+++ b/implementer-prompt.md	2026-10-24 01:24:35
+--- a/implementer-prompt.md	2026-10-24 03:21:39
++++ b/implementer-prompt.md	2026-11-04 01:16:51
 @@ -33,11 +33,14 @@
  
      Once you're clear on requirements:
@@ -169,8 +169,8 @@ diff -ruN a/implementer-prompt.md b/implementer-prompt.md
      If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
      itself — the controller acts on it directly.
 diff -ruN a/scripts/review-package b/scripts/review-package
---- a/scripts/review-package	2026-10-21 21:16:54
-+++ b/scripts/review-package	2026-10-24 01:24:35
+--- a/scripts/review-package	2026-10-24 03:21:39
++++ b/scripts/review-package	2026-11-04 01:16:51
 @@ -4,30 +4,37 @@
  # call. Using the recorded per-task BASE (not HEAD~1) keeps multi-commit
  # tasks intact.
@@ -252,8 +252,8 @@ diff -ruN a/scripts/review-package b/scripts/review-package
    git diff -U10 "${base}..${head}"
  } > "$out"
 diff -ruN a/scripts/task-brief b/scripts/task-brief
---- a/scripts/task-brief	2026-10-21 21:16:54
-+++ b/scripts/task-brief	2026-10-24 01:24:35
+--- a/scripts/task-brief	2026-10-24 03:21:39
++++ b/scripts/task-brief	2026-11-04 01:16:51
 @@ -3,6 +3,9 @@
  # implementer reads in one call, so the task text never has to be pasted
  # through the controller's context.
