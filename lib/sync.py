@@ -253,10 +253,49 @@ def managed_dirs(man, root):
             and os.path.exists(os.path.join(root, d, man["marker"]))]
 
 
-def remove_managed(root, d, why, dry, failures):
+GONE = ".devflow-gone"
+
+
+def delete_marker_last(path, marker):
+    """Delete a managed folder, its marker last: a delete that fails partway leaves
+    a folder that still carries the marker, so a rerun still finds it."""
+    with os.scandir(path) as it:
+        entries = list(it)
+    for e in entries:
+        if e.name == marker:
+            continue
+        if e.is_dir(follow_symlinks=False):
+            shutil.rmtree(e.path)
+        else:
+            os.unlink(e.path)
+    if os.path.lexists(os.path.join(path, marker)):
+        os.unlink(os.path.join(path, marker))
+    os.rmdir(path)
+
+
+def remove_managed(root, d, why, dry, failures, marker):
+    """Remove the managed folder <root>/<d> without ever leaving a folder named <d>
+    that has lost its marker (a rerun would miss it, a sync would SKIP it as not
+    managed). It is renamed to a free `<d>.devflow-gone[-N]` sibling first, so a
+    read-only <root> fails at the rename with nothing touched. The delete takes the
+    marker last; if it fails partway the folder, marker still in it, goes back to <d>."""
     if not dry:
+        path = os.path.join(root, d)
+        gone, n = path + GONE, 0
+        while os.path.lexists(gone):
+            n += 1
+            gone = f"{path}{GONE}-{n}"
         try:
-            shutil.rmtree(os.path.join(root, d))
+            os.rename(path, gone)
+            try:
+                delete_marker_last(gone, marker)
+            except OSError:
+                if os.path.lexists(os.path.join(gone, marker)):
+                    try:
+                        os.rename(gone, path)
+                    except OSError:
+                        pass  # stays as a marked leftover, which a rerun removes
+                raise
         except OSError as e:
             failures.append((d, f"could not remove: {e}"))
             return f"FAIL      {d}: could not remove: {e}"
@@ -265,7 +304,7 @@ def remove_managed(root, d, why, dry, failures):
 
 def prune(man, dest_root, dry, failures):
     names = {s["name"] for s in man["skills"]}
-    return [remove_managed(dest_root, d, "no longer in manifest", dry, failures)
+    return [remove_managed(dest_root, d, "no longer in manifest", dry, failures, man["marker"])
             for d in managed_dirs(man, dest_root) if d not in names]
 
 
@@ -289,7 +328,7 @@ def cleanup(man, tilde_dir, install_ids, dry, failures):
     root = os.path.expanduser(tilde_dir)
     if folder_id(root) in install_ids:
         return ["SKIP (same folder as an install folder)"]
-    return [remove_managed(root, d, "provider not selected", dry, failures)
+    return [remove_managed(root, d, "provider not selected", dry, failures, man["marker"])
             for d in managed_dirs(man, root)]
 
 
@@ -658,7 +697,7 @@ def uninstall_skills(man, dry, failures):
             print("  nothing to remove")
         for d in names:
             before = len(failures)
-            print("  " + remove_managed(root, d, None, dry, failures))
+            print("  " + remove_managed(root, d, None, dry, failures, man["marker"]))
             if len(failures) == before:
                 count += 1
     return count
