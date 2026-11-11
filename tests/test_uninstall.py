@@ -7,7 +7,7 @@ import re
 import stat
 import unittest
 
-from tests.harness import SyncSandbox
+from tests.harness import SyncSandbox, ignores_permissions, requires_posix_permissions, requires_symlinks
 
 MARKER = ".managed-by-devflow"
 
@@ -50,6 +50,8 @@ class UninstallSkillsTest(unittest.TestCase):
 
     def lock(self, skill_dir):
         # a read-only subfolder with a file in it: rmtree cannot unlink the file
+        if ignores_permissions():
+            self.skipTest("needs read-only folders (POSIX, not root)")
         locked = os.path.join(skill_dir, "locked")
         _write(os.path.join(locked, "f"), "x\n")
         os.chmod(locked, stat.S_IRUSR | stat.S_IXUSR)
@@ -106,6 +108,7 @@ class UninstallSkillsTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(_read(f), "mine\n")
 
+    @requires_symlinks
     def test_symlinked_skill_folder_survives(self):
         sb = self.sb
         self.install()
@@ -120,6 +123,7 @@ class UninstallSkillsTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(target, "SKILL.md")))
         self.assertTrue(os.path.isfile(os.path.join(target, MARKER)))
 
+    @requires_symlinks
     def test_link_inside_managed_skill_not_followed(self):
         sb = self.sb
         self.install()
@@ -132,6 +136,7 @@ class UninstallSkillsTest(unittest.TestCase):
         self.assertFalse(os.path.lexists(skill))
         self.assertEqual(_read(data), "keep\n")
 
+    @requires_symlinks
     def test_symlinked_skills_root_cleared_link_kept(self):
         sb = self.sb
         real = os.path.join(sb.tmp, "dotfiles", "skills")
@@ -145,6 +150,7 @@ class UninstallSkillsTest(unittest.TestCase):
         self.assertTrue(os.path.islink(sb.home_path("~/.claude/skills")))
         self.assertEqual(sb.managed_skills("~/.claude/skills"), set())
 
+    @requires_symlinks
     def test_shared_folder_processed_once(self):
         sb = self.sb
         os.makedirs(sb.home_path("~/.claude/skills"))
@@ -177,7 +183,7 @@ class UninstallSkillsTest(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(sb.repo, "vendor")))
         self.assertNotIn("cloning", r.stdout)
 
-    @unittest.skipIf(os.geteuid() == 0, "root ignores read-only folders")
+    @requires_posix_permissions
     def test_failed_removal_reported_exit_1(self):
         sb = self.sb
         self.install()
@@ -267,6 +273,7 @@ class UninstallInstructionsTest(unittest.TestCase):
         self.assertIn("1 item(s) left for you to remove by hand (see the SKIP lines above)",
                       r.stdout)
 
+    @requires_symlinks
     def test_shared_instructions_file_handled_once(self):
         sb = self.sb
         self.install("claude")
@@ -280,6 +287,7 @@ class UninstallInstructionsTest(unittest.TestCase):
                       r.stdout)
         self.assertNotIn("item(s) left", r.stdout)
 
+    @requires_symlinks
     def test_symlinked_instructions_file_stays_a_link(self):
         sb = self.sb
         self.install("claude")

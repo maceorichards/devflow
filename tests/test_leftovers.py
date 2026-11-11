@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from tests.harness import REAL_ROOT, SyncSandbox
+from tests.harness import REAL_ROOT, SyncSandbox, requires_symlinks, script_argv, set_home
 
 START = "<!-- devflow:start"
 END = "<!-- devflow:end -->"
@@ -52,16 +52,16 @@ class RealpathSandbox:
         self.home = tmp if home_is_repo_parent else os.path.realpath(self.sb.home)
 
     def run(self, *args):
-        env = os.environ.copy()
-        env["HOME"] = self.home
+        env = set_home(os.environ.copy(), self.home)
         # Keep the ignore file at today's default whatever the runner's environment (#37
         # resolves XDG_CONFIG_HOME and core.excludesFile; not under test here).
         env.pop("XDG_CONFIG_HOME", None)
         for k in list(env):
             if k.startswith("GIT_CONFIG"):
                 del env[k]
-        return subprocess.run([os.path.join(self.repo, "sync.sh")] + list(args),
-                              cwd=self.repo, env=env, capture_output=True, text=True)
+        return subprocess.run(script_argv(os.path.join(self.repo, "sync.sh")) + list(args),
+                              cwd=self.repo, env=env, capture_output=True, text=True,
+                              encoding="utf-8")
 
     def path(self, tilde):
         return os.path.join(self.home, tilde[2:])
@@ -253,6 +253,7 @@ class RepoGitignoreTest(unittest.TestCase):
                 self.assertTrue(self.ignored(d))
 
     # characterization: a symlink under a real `vendor/` folder is already covered by `vendor/`
+    @requires_symlinks
     def test_manifest_vendor_dirs_ignored_as_symlinks(self):
         dirs = self.vendor_dirs()
         self.assertTrue(dirs)
@@ -261,6 +262,7 @@ class RepoGitignoreTest(unittest.TestCase):
                 self.make_link(d)
                 self.assertTrue(self.ignored(d))
 
+    @requires_symlinks
     def test_root_vendor_symlink_ignored(self):
         self.make_link("vendor")
         self.assertTrue(self.ignored("vendor"))

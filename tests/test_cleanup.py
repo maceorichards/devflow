@@ -2,7 +2,7 @@
 import os
 import unittest
 
-from tests.harness import SyncSandbox
+from tests.harness import SyncSandbox, requires_symlinks
 
 MARKER = ".managed-by-devflow"
 
@@ -82,6 +82,7 @@ class SkillCleanupTest(unittest.TestCase):
         self.assertEqual(sb.managed_skills("~/.agents/skills"), sb.manifest_skill_names())
         self.assertIn("would remove tdd (provider not selected)", r.stdout)
 
+    @requires_symlinks
     def test_symlinked_agents_folder_to_claude_is_not_cleaned(self):
         # Review Focus 1: cleanup folder resolving to an install folder is skipped and reported
         sb = self.sb
@@ -95,6 +96,7 @@ class SkillCleanupTest(unittest.TestCase):
         self.assertIn("SKIP (same folder as an install folder)", r.stdout)
         self.assertTrue(os.path.islink(sb.home_path("~/.agents/skills")))
 
+    @requires_symlinks
     def test_symlinked_skill_folder_is_never_followed(self):
         # Review Focus 2: a symlinked skill folder is never followed or deleted
         sb = self.sb
@@ -110,6 +112,7 @@ class SkillCleanupTest(unittest.TestCase):
             self.assertTrue(os.path.islink(sb.home_path(d + "/ext")), d)
         self.assertTrue(os.path.exists(os.path.join(ext, "SKILL.md")))
 
+    @requires_symlinks
     def test_case_mismatched_symlink_to_claude_is_not_cleaned(self):
         sb = self.sb
         probe = os.path.join(sb.home, "CaseProbe")
@@ -238,6 +241,7 @@ class FinalReviewFixTest(unittest.TestCase):
         self.sb = SyncSandbox()
         self.addCleanup(self.sb.close)
 
+    @requires_symlinks
     def test_unselected_link_to_selected_instructions_file_is_skipped(self):
         # F1: an unselected provider's instructions file that is the selected one's file is never stripped
         sb = self.sb

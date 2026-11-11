@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 from tests import harness
-from tests.harness import SyncSandbox
+from tests.harness import SyncSandbox, ignores_permissions, requires_symlinks
 
 START = "<!-- devflow:start"
 MARKER = ".managed-by-devflow"
@@ -33,6 +33,8 @@ class RemoveFailureTest(unittest.TestCase):
 
     def lock(self, skill_dir):
         # a read-only subfolder with a file in it: rmtree cannot unlink the file
+        if ignores_permissions():
+            self.skipTest("needs read-only folders (POSIX, not root)")
         locked = os.path.join(skill_dir, "locked")
         _write(os.path.join(locked, "f"), "x\n")
         os.chmod(locked, stat.S_IRUSR | stat.S_IXUSR)
@@ -74,11 +76,12 @@ class AtomicWriteTest(unittest.TestCase):
         md = sb.home_path("~/.claude/CLAUDE.md")
         _write(md, "# mine\n")
         os.chmod(md, 0o640)
+        mode = stat.S_IMODE(os.stat(md).st_mode)  # 0o640 on POSIX; Windows keeps only read-only
         ino = os.stat(md).st_ino
         r = sb.run()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotEqual(os.stat(md).st_ino, ino)
-        self.assertEqual(stat.S_IMODE(os.stat(md).st_mode), 0o640)
+        self.assertEqual(stat.S_IMODE(os.stat(md).st_mode), mode)
         self.assertEqual(sorted(os.listdir(sb.home_path("~/.claude"))), ["CLAUDE.md", "skills"])
 
     def test_removed_section_file_replaced_not_rewritten(self):
@@ -91,6 +94,7 @@ class AtomicWriteTest(unittest.TestCase):
         self.assertNotEqual(os.stat(agents).st_ino, ino)
         self.assertEqual(os.listdir(sb.home_path("~/.codex")), ["AGENTS.md"])
 
+    @requires_symlinks
     def test_symlinked_instructions_file_stays_a_link(self):
         sb = self.sb
         target = os.path.join(sb.home, "dotfiles", "CLAUDE.md")
@@ -229,7 +233,7 @@ class VendorDriftTest(unittest.TestCase):
 
     def fake_root(self, lock_sha):
         root = tempfile.mkdtemp(prefix="devflow-drift-")
-        self.addCleanup(shutil.rmtree, root, True)
+        self.addCleanup(harness.rmtree, root)
         clone = os.path.join(root, "vendor", "v")
         os.makedirs(clone)
         self.git("init", "-q", cwd=clone)
@@ -259,7 +263,7 @@ class VendorDriftTest(unittest.TestCase):
 
     def test_missing_clone_skips(self):
         root, clone, _ = self.fake_root(None)
-        shutil.rmtree(clone)
+        harness.rmtree(clone)  # git leaves read-only objects on Windows
         with self.assertRaises(unittest.SkipTest):
             harness.check_vendors(root)
 
