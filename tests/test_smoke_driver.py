@@ -25,6 +25,8 @@ import tempfile
 import unittest
 import uuid
 
+from tests.harness import install_python_command
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SMOKE = os.path.join(ROOT, "smoke")
@@ -63,9 +65,7 @@ class DriverCase(unittest.TestCase):
         self.bin = os.path.join(self.tmp, "bin")
         os.makedirs(self.bin)
         for name in ("claude", "agent", "codex", "gh"):
-            dest = os.path.join(self.bin, name)
-            shutil.copy(FAKE, dest)
-            os.chmod(dest, 0o755)
+            install_python_command(FAKE, self.bin, name)
         self.logs = os.path.join(self.tmp, "logs")  # not created: the driver creates it
         self.repo = os.path.join(self.tmp, "repo")
         os.makedirs(self.repo)
@@ -681,7 +681,8 @@ class InitTest(DriverCase):
     def _fixture_tests(self):
         self.init_ok()
         self.assertTrue(os.path.isdir(self.target), "precondition: no repo dir")
-        return subprocess.run(["python3", "-m", "unittest"], cwd=self.target, env=self.env(),
+        # sys.executable, not "python3": Windows' python.org installs have no python3 command.
+        return subprocess.run([sys.executable, "-m", "unittest"], cwd=self.target, env=self.env(),
                               capture_output=True, text=True, timeout=120)
 
     def test_fixture_tests_pass(self):
@@ -696,7 +697,7 @@ class InitTest(DriverCase):
 
     def _existing_target(self):
         os.makedirs(self.target)
-        with open(os.path.join(self.target, "keep.txt"), "w") as f:
+        with open(os.path.join(self.target, "keep.txt"), "w", newline="") as f:
             f.write("mine\n")
 
     def test_existing_dir_exits_1(self):

@@ -9,7 +9,7 @@ import os
 import stat
 import unittest
 
-from tests.harness import SyncSandbox
+from tests.harness import SyncSandbox, requires_posix_permissions
 
 MARKER = ".managed-by-devflow"
 SKIP_UNMANAGED = "SKIP (exists, not managed by devflow)"
@@ -21,7 +21,7 @@ def _write(path, text=""):
         f.write(text)
 
 
-@unittest.skipIf(os.geteuid() == 0, "root ignores read-only folders")
+@requires_posix_permissions
 class FailedRemovalKeepsMarkerTest(unittest.TestCase):
     def setUp(self):
         self.sb = SyncSandbox()

@@ -30,6 +30,8 @@ def session_id(args):
 
 def main():
     prog = os.path.basename(sys.argv[0])
+    if prog.lower().endswith(".exe"):  # Windows: the test wraps this file as <prog>.exe
+        prog = prog[:-4]
     args = sys.argv[1:]
     with open(os.environ["FAKE_RECORD"], "a") as f:
         f.write(json.dumps({"prog": prog, "argv": args, "cwd": os.getcwd()}) + "\n")

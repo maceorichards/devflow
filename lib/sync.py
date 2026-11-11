@@ -335,9 +335,22 @@ def cleanup(man, tilde_dir, install_ids, dry, failures):
 # --------------------------------------------------------------------- global config
 def tilde(path):
     """`~/...` for a path under HOME (or `~` itself), the path unchanged otherwise."""
+    if os.name == "nt":
+        return _tilde_windows(path)
     home = os.path.expanduser("~").rstrip(os.sep)
     if home and (path == home or path.startswith(home + os.sep)):
         return "~" + path[len(home):]
+    return path
+
+
+def _tilde_windows(path):
+    """Windows: paths arrive with either separator (expanduser keeps the `/` in `~/.config`, git
+    prints `C:/...`) and any case, so compare normalized; name the rest with `/`, as on POSIX."""
+    home = os.path.normpath(os.path.expanduser("~")).rstrip("\\")
+    norm = os.path.normpath(path)
+    h, p = os.path.normcase(home), os.path.normcase(norm)
+    if home and (p == h or p.startswith(h + "\\")):
+        return "~" + norm[len(home):].replace("\\", "/")
     return path
 
 
@@ -433,10 +446,13 @@ def remove_instructions(tilde_path, dry):
     if bounds is None:
         return None
     a, b = bounds
+    nl = "\r\n" if "\r\n" in cur else "\n"  # keep a CRLF file's own line endings
     if not cur[b:].strip():
-        new = cur[:a].rstrip("\n") + "\n" if cur[:a].strip() else ""
+        new = cur[:a].rstrip("\r\n") + nl if cur[:a].strip() else ""
     else:
-        if cur[b:b + 1] == "\n":
+        if cur.startswith("\r\n", b):
+            b += 2
+        elif cur[b:b + 1] == "\n":
             b += 1
         new = cur[:a] + cur[b:]
     if not dry:

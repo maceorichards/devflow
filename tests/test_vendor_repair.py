@@ -7,14 +7,14 @@ import os
 import stat
 import unittest
 
-from tests.harness import SyncSandbox
+from tests.harness import SyncSandbox, ignores_permissions
 from tests.test_line_endings import _files_with_cr, _local_autocrlf
 
 
 class FailedVendorRepairRetriesTest(unittest.TestCase):
     def setUp(self):
-        if hasattr(os, "geteuid") and os.geteuid() == 0:
-            raise unittest.SkipTest("root ignores folder permissions, so the reset can't be made to fail")
+        if ignores_permissions():
+            raise unittest.SkipTest("root and Windows ignore folder permissions, so the reset can't be made to fail")
         self.sb = SyncSandbox(own_vendors=True)
         self.addCleanup(self.sb.close)
         self.sb.set_global_git_config("core.autocrlf", "true")

@@ -3,7 +3,7 @@ really reads as the global excludes file, and names that file in its status line
 import os
 import unittest
 
-from tests.harness import REAL_ROOT, SyncSandbox
+from tests.harness import REAL_ROOT, SyncSandbox, ignores_permissions, requires_symlinks
 
 
 def read(path):
@@ -27,7 +27,8 @@ def expected_lines():
 
 
 def core_block(value):
-    return "[core]\n\texcludesFile = %s\n" % value
+    # git config treats `\` as an escape, so a Windows path's backslashes must be doubled
+    return "[core]\n\texcludesFile = %s\n" % value.replace("\\", "\\\\")
 
 
 class IgnoreTargetTest(unittest.TestCase):
@@ -159,8 +160,8 @@ class IgnoreTargetRobustnessTest(unittest.TestCase):
         write(os.path.join(self.home, ".gitconfig"), core_block(value))
 
     def locked_setup(self, *args):
-        if os.geteuid() == 0:
-            self.skipTest("root ignores directory permissions")
+        if ignores_permissions():
+            self.skipTest("needs read-only folders (POSIX, not root)")
         locked = os.path.join(self.tmp, "locked")
         os.makedirs(locked)
         os.chmod(locked, 0o500)
@@ -171,6 +172,7 @@ class IgnoreTargetRobustnessTest(unittest.TestCase):
     def ignore_lines(self, r):
         return [l for l in r.stdout.splitlines() if "git ignore" in l]
 
+    @requires_symlinks
     def test_symlinked_target_stays_a_link(self):
         # Characterization: may already pass after Task 1.
         real = os.path.join(self.home, "dotfiles", "ignore")
